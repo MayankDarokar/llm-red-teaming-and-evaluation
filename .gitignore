@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.*
+*.env
+!.env.example
+
+# Production Build Outputs
+dist/
+build/
+dist-ssr/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & IDE Files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
