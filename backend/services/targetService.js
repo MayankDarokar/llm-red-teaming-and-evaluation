@@ -1,33 +1,24 @@
 /**
- * Target Model Service
- * Calls target LLMs (Anthropic, OpenAI, or Mock) to evaluate their responses.
+ * Target Model Service (Phase 2 Enhanced)
+ * Calls target LLMs (via Gemini, OpenRouter, Groq, Ollama, or Mock) to evaluate their responses.
  */
 
-async function callTargetModel(model, promptText) {
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+const { generateCompletion } = require('./aiProviderService');
 
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: model || 'claude-3-5-sonnet-20241022',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: promptText }]
-        })
-      });
+async function callTargetModel(model, promptText, options = {}) {
+  const { provider = 'gemini', mode = 'EXTERNAL_API' } = options;
 
-      const data = await response.json();
-      const textBlock = data.content?.find(block => block.type === 'text');
-      if (textBlock?.text) return textBlock.text;
-    } catch (err) {
-      console.warn('Anthropic API call failed, using fallback:', err.message);
-    }
+  // Use multi-provider AI abstraction layer
+  const result = await generateCompletion({
+    provider,
+    mode,
+    userPrompt: promptText,
+    model: model || 'gpt-4',
+    temperature: 0.7
+  });
+
+  if (result.text) {
+    return result.text;
   }
 
   // Fallback Mock LLM logic when no API key or network fails

@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 const promptRoutes = require('./routes/promptRoutes');
 const evaluationRoutes = require('./routes/evaluationRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const campaignRoutes = require('./routes/campaignRoutes');
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/prompts', promptRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 const PORT = process.env.PORT || 5000;
 

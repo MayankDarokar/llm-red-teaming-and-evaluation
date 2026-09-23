@@ -25,6 +25,12 @@ const promptSchema = new mongoose.Schema({
     enum: ['manual', 'imported', 'generated'],
     default: 'manual'
   },
+  // Phase 2 Campaign & Lineage extensions
+  campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
+  parentPromptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Prompt', default: null },
+  generationRound: { type: Number, default: 1 },
+  mutationType: { type: String, default: null },
+  technique: { type: String, default: 'direct' },
   createdAt: { type: Date, default: Date.now }
 });
 

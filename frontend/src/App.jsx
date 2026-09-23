@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard';
 import PromptLibrary from './pages/PromptLibrary';
 import Evaluation from './pages/Evaluation';
 import Results from './pages/Results';
+import Campaigns from './pages/Campaigns';
+import CampaignDetail from './pages/CampaignDetail';
 
 function App() {
   return (
@@ -12,6 +14,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="campaigns" element={<Campaigns />} />
+          <Route path="campaigns/:id" element={<CampaignDetail />} />
           <Route path="prompts" element={<PromptLibrary />} />
           <Route path="evaluation" element={<Evaluation />} />
           <Route path="results" element={<Results />} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getStats } from '../api/stats';
-import { FileText, PlayCircle, AlertTriangle, ShieldCheck, Activity, Eye, X, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { FileText, PlayCircle, AlertTriangle, ShieldCheck, Activity, Eye, X, ArrowRight, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -57,9 +57,18 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Real-time safety metrics and LLM evaluation telemetry. Click any recent evaluation for full detail.</p>
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500">Real-time safety metrics and LLM evaluation telemetry. Click any recent evaluation for full detail.</p>
+        </div>
+        <button
+          onClick={() => navigate('/campaigns')}
+          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-lg shadow transition-colors"
+        >
+          <Shield className="w-4 h-4" />
+          AI Red-Team Campaigns
+        </button>
       </div>
 
       {/* Metric Cards */}

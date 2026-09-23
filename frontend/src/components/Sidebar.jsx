@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, List, Play, BarChart2 } from 'lucide-react';
+import { Home, List, Play, BarChart2, Shield } from 'lucide-react';
 
 const Sidebar = () => {
   return (
@@ -19,6 +19,18 @@ const Sidebar = () => {
         >
           <Home className="w-5 h-5" />
           <span className="font-medium">Dashboard</span>
+        </NavLink>
+
+        <NavLink
+          to="/campaigns"
+          className={({ isActive }) =>
+            `flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`
+          }
+        >
+          <Shield className="w-5 h-5" />
+          <span className="font-medium">Campaigns</span>
         </NavLink>
         
         <NavLink
