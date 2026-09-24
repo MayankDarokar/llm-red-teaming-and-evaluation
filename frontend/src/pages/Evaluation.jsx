@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 const Evaluation = () => {
   const [prompts, setPrompts] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash-lite');
   const [status, setStatus] = useState(null); // 'pending' | 'running' | 'complete' | 'failed'
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -80,10 +80,11 @@ const Evaluation = () => {
                 onChange={e => setSelectedModel(e.target.value)}
                 disabled={status === 'pending' || status === 'running'}
               >
-                <option value="gpt-4o">OpenAI GPT-4o</option>
-                <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-                <option value="llama-3-70b">Meta Llama 3 70B</option>
-                <option value="gemini-1-5-pro">Google Gemini 1.5 Pro</option>
+                <option value="gemini-3.5-flash-lite">Google Gemini 3.5 Flash Lite (Verified / Recommended)</option>
+                <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq / Free)</option>
+                <option value="google/gemini-2.0-flash-lite-preview-02-05:free">Gemini 2.0 Flash Lite (OpenRouter Free)</option>
+                <option value="gpt-4">GPT-4 (Mock Simulation)</option>
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Mock Simulation)</option>
               </select>
             </div>
 

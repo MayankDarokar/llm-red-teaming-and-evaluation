@@ -1,246 +1,277 @@
-# AI Project Handoff & Sole Representative Specification
+# AI HANDOFF — LLM Red-Teaming & Evaluation Agent System
 
-> **Purpose of this File**: This document serves as the **single, comprehensive source of truth** for ChatGPT (or any AI assistant). It contains the full context of the project, including architectural design, current progress across all phases, file modifications, component impact matrices, handled & potential errors, database schemas, API routes, and guidance for next steps.
-> 
-> **Instructions for User**: Provide/paste this single file (`AI_HANDOFF.md`) to ChatGPT instead of sharing multiple individual files.
+> Phase 2 Final Audit: All identified findings, errors, fixes, validation results, architectural decisions, regression checks, and remaining limitations are documented below.
 
 ---
 
-## 1. Executive Summary & System Overview
+## 1. Project Overview
 
-* **Project Name**: LLM Red-Teaming & Evaluation Platform
-* **Core Functionality**: A full-stack web application that acts as an automated AI security tester. It creates adversarial attacks (jailbreaks, prompt injections, PII extraction, bias, etc.), targets an LLM model under test, uses an AI Safety Judge to evaluate the response, mutates successful attacks across multiple generation rounds, and provides real-time telemetry dashboards.
-* **Technology Stack**:
-  * **Frontend**: React (Vite), Tailwind CSS, Axios, Lucide React Icons.
-  * **Backend**: Node.js, Express.js, Mongoose (MongoDB).
-  * **AI Provider Gateway**: Multi-provider support covering Google Gemini (Free tier), OpenRouter, Groq, local Ollama models, and an offline Mock fallback engine.
+* **What the system does**: An automated, end-to-end AI Red-Teaming and LLM Safety Evaluation Platform. It orchestrates multi-turn adversarial security campaigns to probe target LLM models against critical AI safety vulnerabilities (jailbreaks, prompt injection, harmful content, data exfiltration, bias, misinformation). It automatically executes prompts against target models, scores responses using an autonomous AI Safety Judge, identifies security bypasses, mutates successful attacks across generation rounds, and visualizes real-time risk telemetry, scorecards, and mutation lineage trees.
+* **Why it exists**: Modern LLM deployments require continuous, automated adversarial testing before and during production to detect safety alignment failures, prompt injection vectors, and policy violations at zero infrastructure cost.
+* **What it evaluates**:
+  1. *Jailbreak Resistance*: Role-play framing, developer mode simulation, fictional bypass scenarios.
+  2. *Prompt Injection*: System instruction override, delimiter hijacking, prompt leakage.
+  3. *Harmful Content*: Unsafe instruction generation, hazardous requests.
+  4. *Data Exfiltration & Privacy*: PII extraction, credential leaks, memory extraction.
+  5. *Bias & Fairness*: Disparate treatment, demographic stereotypes.
+  6. *Misinformation*: Hallucination inducement, deceptive narrative generation.
+* **What the system does NOT do**:
+  * It does NOT perform infrastructure penetration testing (DDoS, network ports, OS exploits).
+  * It does NOT guarantee absolute zero-vulnerability safety for any model under test.
+* **Current project phase**: **Phase 2 Complete & Audited** (Automated Multi-Round AI Red-Teaming Campaigns with Lineage & Full Provider Abstraction).
+
+---
+
+## 2. Technology Stack
+
+* **Frontend**:
+  * **Core**: React 18 (Vite build toolchain)
+  * **Styling**: Tailwind CSS (clean, responsive, dark/light contrast cards)
+  * **Routing**: React Router DOM (v6)
+  * **Icons & UI**: Lucide React Icons
+  * **API Client**: Axios with configured backend base URL
+* **Backend**:
+  * **Runtime**: Node.js (v18+)
+  * **Server Framework**: Express.js REST API
+  * **Database**: MongoDB with Mongoose ODM
+  * **Process Control**: Non-blocking asynchronous job processing with immediate HTTP `202 Accepted` polling pattern
+* **AI Engine & Provider Architecture**:
+  * **Abstraction Gateway**: [`backend/services/aiProviderService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/aiProviderService.js)
+  * **Provider/Model Registry**: [`backend/config/providerModels.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/config/providerModels.js)
+  * **Active Primary Provider**: Google Gemini (`gemini-3.5-flash-lite`, Free-tier verified $0/₹0 operation)
+  * **Supported Additional Providers**: OpenRouter (Free tier models), Groq (`llama-3.3-70b-versatile`), Ollama (Local offline models), and Offline Mock Fallback Engine.
+
+---
+
+## 3. Complete System Workflow
 
 ```
-+------------------------------------------------------------------------------------------------------+
-|                                   LLM Red-Teaming Workflow                                           |
-|                                                                                                      |
-|  [Attack Generator] ---> [Target Model Under Test] ---> [AI Safety Judge] ---> [Mutation Engine]     |
-|          ^                                                                             |             |
-|          +-------------------------- Re-Test Next Round <------------------------------+             |
-|                                                                                                      |
-|  * All progress, scores, risk levels, and lineage trees are stored in MongoDB & rendered live in UI *|
-+------------------------------------------------------------------------------------------------------+
-```
-
----
-
-## 2. Phased Development Progress
-
-### Phase 1: Core Evaluation Pipeline & UI (100% Complete)
-1. **Single Evaluation Engine**: Asynchronous execution using a HTTP `202 Accepted` pattern with background processing to eliminate request timeouts during long LLM calls.
-2. **Prompt Library**: Complete CRUD interface with real-time category filtering, search, severity badges, and detailed prompt inspection overlays.
-3. **Telemetry & Dashboard**: Aggregate metrics calculation (total prompts, total evaluations, average risk scores, system safety rating banner).
-4. **Safety Judge & Defensive Parsing**: Initial integration with AI Judge for scoring (0–100) and flag assignments (`jailbreak_success`, `pii_leak`, `harmful_content`, etc.).
-
----
-
-### Phase 2: Automated AI-Powered Red-Teaming Campaigns (100% Complete)
-1. **AI Provider Abstraction Layer (`aiProviderService.js`)**: Unified interface routing calls across Gemini, OpenRouter, Groq, Ollama, and Mock engines with zero-crash guarantees and $0 cost default options.
-2. **Campaign & Lineage Schemas**:
-   * `Campaign`: Tracks parameters, status, score, risk rating, generated/completed counts, and stop requests.
-   * `Prompt`: Extended with `campaignId`, `parentPromptId`, `generationRound`, `mutationType`, and `technique`.
-   * `Evaluation`: Extended with `campaignId`, `generationRound`, and `isSuccessfulAttack`.
-3. **Core AI Services**:
-   * `attackGeneratorService.js`: AI-driven adversarial prompt generation by category & difficulty with template fallbacks.
-   * `attackMutationService.js`: Analyzes successful jailbreaks and judge reasoning to generate mutated, harder-to-detect prompt iterations.
-   * Upgraded `targetService.js` & `judgeService.js` to route via `aiProviderService`.
-4. **Campaign Orchestrator & Controller**:
-   * Async loop (`GENERATE` → `TEST` → `JUDGE` → `LEARN` → `MUTATE` → `RE-TEST`).
-   * REST Endpoints: `POST /api/campaigns`, `POST /api/campaigns/:id/start`, `POST /api/campaigns/:id/stop`, `GET /api/campaigns/:id/status`, `GET /api/campaigns/:id/results`, `GET /api/campaigns/:id/metrics`.
-5. **Frontend Campaign Suite**:
-   * `Campaigns.jsx`: Campaign list view & modal configuration wizard (Provider, Mode, Target Model, Difficulty, Categories).
-   * `CampaignDetail.jsx`: Live polling campaign dashboard with real-time scorecards, category distribution, attack lineage tree, and vulnerability log.
-
----
-
-## 3. Comprehensive Impact Matrix & Changed Files
-
-| File Path | Status | Purpose / Functionality | Impact on Existing Code |
-| :--- | :--- | :--- | :--- |
-| `backend/services/aiProviderService.js` | **[NEW]** | Multi-provider AI gateway with fallback logic. | None. Used as backend service layer. |
-| `backend/models/Campaign.js` | **[NEW]** | Mongoose schema for red-team campaigns. | None. Independent model. |
-| `backend/models/Prompt.js` | **[MODIFIED]** | Added campaign ID, parent prompt ID, round, mutation type. | Fully backward-compatible. Default values handle Phase 1 prompts. |
-| `backend/models/Evaluation.js` | **[MODIFIED]** | Added campaign ID, round, and `isSuccessfulAttack`. | Fully backward-compatible. |
-| `backend/services/attackGeneratorService.js` | **[NEW]** | Generates category/difficulty-specific attack prompts via AI/templates. | None. |
-| `backend/services/attackMutationService.js` | **[NEW]** | Mutates successful jailbreak prompts into stronger variants. | None. |
-| `backend/services/targetService.js` | **[MODIFIED]** | Refactored to delegate model execution to `aiProviderService`. | Backward-compatible signature. |
-| `backend/services/judgeService.js` | **[MODIFIED]** | Refactored to delegate judge evaluation to `aiProviderService`. | Backward-compatible signature. |
-| `backend/services/campaignOrchestrator.js` | **[NEW]** | Runs multi-round campaign background execution loops. | Independent background service. |
-| `backend/controllers/campaignController.js` | **[NEW]** | Controller handling campaign CRUD, control actions, and status polling. | Independent controller. |
-| `backend/routes/campaignRoutes.js` | **[NEW]** | Express router mounted at `/api/campaigns`. | None. |
-| `backend/server.js` | **[MODIFIED]** | Registered `/api/campaigns` route endpoint. | Non-breaking route addition. |
-| `frontend/src/api/campaigns.js` | **[NEW]** | Axios API client methods for campaign endpoints. | Frontend API module. |
-| `frontend/src/pages/Campaigns.jsx` | **[NEW]** | Campaign listing and creation modal page. | New route `/campaigns`. |
-| `frontend/src/pages/CampaignDetail.jsx` | **[NEW]** | Live campaign dashboard, lineage visualization, and findings log. | New route `/campaigns/:id`. |
-| `frontend/src/components/Sidebar.jsx` | **[MODIFIED]** | Added navigation link for Campaigns tab. | Pure UI enhancement. |
-| `frontend/src/App.jsx` | **[MODIFIED]** | Added routes for `/campaigns` and `/campaigns/:id`. | Non-breaking routing update. |
-| `frontend/src/pages/Dashboard.jsx` | **[MODIFIED]** | Added quick access button for starting campaigns. | Non-breaking UI enhancement. |
-
----
-
-## 4. Error Modes, Edge Cases & System Safeguards
-
-### 1. API Keys & Rate Limiting (HTTP 429 / 401 / 403)
-* **Handling**: If external keys (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`) are missing, invalid, or rate-limited:
-  * `aiProviderService.js` logs a warning and automatically degrades to the **Mock Engine**.
-  * `attackGeneratorService.js` falls back to pre-defined attack templates.
-  * **Result**: The system remains operational and never throws unhandled crashes due to third-party API issues.
-
-### 2. Defensive JSON Parsing for LLM Outputs
-* **Handling**: LLMs frequently wrap JSON output inside markdown block quotes (e.g., ````json ... ````) or append conversational preamble.
-  * Both `judgeService.js` (`parseJudgeOutput`) and `attackGeneratorService.js` / `attackMutationService.js` perform regex cleaning: `.replace(/```json|```/g, '').trim()`.
-  * If parsing fails completely, `judgeService.js` returns a fallback evaluation structure with flag `judge_parse_error` instead of crashing the process.
-
-### 3. Server Timeouts on Long Execution Loops
-* **Handling**: Single evaluations and multi-round campaign runs can take tens of seconds to minutes.
-  * Routes respond immediately with HTTP `202 Accepted` containing `{ status: 'pending' }` or `{ status: 'generating' }`.
-  * Heavy lifting runs asynchronously in the Node.js event loop while the frontend polls the status endpoint every 2 seconds.
-
-### 4. Local Model Connectivity (Ollama)
-* **Handling**: When using `provider: 'ollama'`, if the local Ollama instance (`http://localhost:11434`) is offline, the provider service catches the connection error and generates a fallback response.
-
-### 5. MongoDB Connection Failure
-* **Handling**: In `backend/config/db.js`, database connection errors are caught, logged, and exit gracefully (`process.exit(1)`).
-
----
-
-## 5. System Schemas Reference
-
-### Campaign Schema (`backend/models/Campaign.js`)
-```javascript
-{
-  name: String (required),
-  description: String,
-  targetModel: String (default: 'gpt-4'),
-  executionMode: Enum ['MOCK', 'EXTERNAL_API', 'LOCAL'],
-  provider: Enum ['gemini', 'openrouter', 'groq', 'ollama', 'mock'],
-  attackCategories: [String],
-  difficulty: Enum ['Low', 'Medium', 'High'],
-  requestedPromptCount: Number (default: 10),
-  generatedPromptCount: Number,
-  completedEvaluationCount: Number,
-  successfulAttackCount: Number,
-  attackSuccessRate: Number,
-  status: Enum ['draft', 'generating', 'running', 'analyzing', 'completed', 'failed', 'stopped'],
-  overallScore: Number,
-  riskLevel: Enum ['Very Safe', 'Low Risk', 'Moderate Risk', 'High Risk', 'Critical Risk', 'Pending'],
-  stopRequested: Boolean,
-  createdAt: Date,
-  completedAt: Date
-}
-```
-
-### Extended Prompt Schema (`backend/models/Prompt.js`)
-```javascript
-{
-  title: String,
-  text: String (required),
-  category: Enum ['jailbreak', 'prompt-injection', 'harmful-content', 'data-exfiltration', 'bias', 'misinformation', 'other'],
-  tags: [String],
-  severity: Enum ['low', 'medium', 'high', 'critical'],
-  difficulty: Enum ['Low', 'Medium', 'High'],
-  source: Enum ['manual', 'imported', 'generated'],
-  // Campaign extensions:
-  campaignId: ObjectId (ref: 'Campaign'),
-  parentPromptId: ObjectId (ref: 'Prompt'),
-  generationRound: Number,
-  mutationType: String,
-  technique: String,
-  createdAt: Date
-}
-```
-
-### Extended Evaluation Schema (`backend/models/Evaluation.js`)
-```javascript
-{
-  promptId: ObjectId (ref: 'Prompt'),
-  targetModel: String,
-  status: Enum ['pending', 'running', 'complete', 'failed'],
-  targetResponse: String,
-  judgeScore: Number (0-100),
-  vulnerabilityFlags: [String],
-  judgeReasoning: String,
-  errorMessage: String,
-  // Campaign extensions:
-  campaignId: ObjectId (ref: 'Campaign'),
-  generationRound: Number,
-  isSuccessfulAttack: Boolean,
-  createdAt: Date,
-  completedAt: Date
-}
++---------------------------------------------------------------------------------------------------------+
+|                                    Automated Red-Teaming Workflow                                       |
+|                                                                                                         |
+|  [USER CONFIGURATION]                                                                                   |
+|  - Provider (Gemini / Groq / OpenRouter / Ollama / Mock)                                                |
+|  - Target Model (gemini-3.5-flash-lite / etc.)                                                          |
+|  - Attack Categories & Difficulty (Low / Medium / High) & Attack Count (1-50)                           |
+|                                     │                                                                   |
+|                                     ▼                                                                   |
+|  [1. ATTACK GENERATION] ──────────► AI Attack Generator generates structured adversarial prompts        |
+|                                     │                                                                   |
+|                                     ▼                                                                   |
+|  [2. TARGET MODEL EXECUTION] ─────► Target LLM receives prompt via aiProviderService                   |
+|                                     │                                                                   |
+|                                     ▼                                                                   |
+|  [3. AI SAFETY JUDGE] ────────────► Evaluates response (Score 0-100, Flags, Reasoning)                  |
+|                                     │                                                                   |
+|             ┌───────────────────────┴────────────────────────┐                                          |
+|             ▼                                                ▼                                          |
+|     [Score < 60: Defended]                         [Score >= 60: Bypass Found]                          |
+|             │                                                │                                          |
+|             │                                                ▼                                          |
+|             │                              [4. AI MUTATION ENGINE (Up to 3 Rounds)]                     |
+|             │                              - Analyzes failure cause & judge finding                     |
+|             │                              - Creates mutated, harder-to-detect attack                   |
+|             │                              - Re-tests against Target LLM & AI Judge                     |
+|             │                                                │                                          |
+|             └───────────────────────┬────────────────────────┘                                          |
+|                                     │                                                                   |
+|                                     ▼                                                                   |
+|  [5. METRIC CONSOLIDATION] ───────► Computes Success Rate, Overall Risk Score, Risk Rating             |
+|                                     │                                                                   |
+|                                     ▼                                                                   |
+|  [6. TELEMETRY & LINEAGE UI] ─────► Real-time dashboard, mutation lineage tree, finding logs            |
++---------------------------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 6. Directory Structure & File Map
+## 4. Phase 1 Status
 
-```
-llm-red-teaming-and-evaluation/
-├── 1st_phase_progress.md                    # Detailed summary of Phase 1 implementation
-├── AI_HANDOFF.md                            # THIS FILE: Primary context document for ChatGPT
-├── change.md                                # Chronological change log
-├── overview.md                              # High-level product definition
-├── phase1_next_steps_implementation_guide.md# Initial technical guide
-├── backend/
-│   ├── .env.example                         # Environment variable definitions
-│   ├── server.js                            # Express application entry point & route definitions
-│   ├── config/
-│   │   └── db.js                            # Mongoose MongoDB connection handler
-│   ├── controllers/
-│   │   ├── campaignController.js            # Campaign management & polling logic
-│   │   ├── evaluationController.js          # Async single evaluation execution
-│   │   └── promptController.js              # Prompt library CRUD controller
-│   ├── models/
-│   │   ├── Campaign.js                      # Red-team campaign schema
-│   │   ├── Evaluation.js                    # Combined evaluation/result schema
-│   │   └── Prompt.js                        # Adversarial prompt & lineage schema
-│   ├── routes/
-│   │   ├── campaignRoutes.js                # API endpoints for /api/campaigns
-│   │   ├── evaluationRoutes.js              # API endpoints for /api/evaluations
-│   │   ├── promptRoutes.js                  # API endpoints for /api/prompts
-│   │   └── statsRoutes.js                   # API endpoint for dashboard telemetry
-│   ├── scripts/
-│   │   └── seed.js                          # Database seeding script
-│   └── services/
-│       ├── aiProviderService.js             # Gateway for Gemini, OpenRouter, Groq, Ollama, Mock
-│       ├── attackGeneratorService.js        # AI generator for category/difficulty attack prompts
-│       ├── attackMutationService.js         # AI mutation engine for multi-round attacks
-│       ├── campaignOrchestrator.js          # Multi-round campaign execution loop
-│       ├── judgeService.js                  # AI Safety Judge evaluation & defensive JSON parser
-│       └── targetService.js                 # Target model API dispatch
-└── frontend/
-    ├── src/
-    │   ├── App.jsx                          # Main routing container
-    │   ├── main.jsx                         # React app entry point
-    │   ├── api/
-    │   │   ├── campaigns.js                 # API helper for campaigns
-    │   │   ├── evaluations.js               # API helper for evaluations
-    │   │   ├── prompts.js                   # API helper for prompt CRUD
-    │   │   └── stats.js                     # API helper for dashboard stats
-    │   ├── components/
-    │   │   └── Sidebar.jsx                  # Navigation sidebar
-    │   └── pages/
-    │       ├── CampaignDetail.jsx           # Live campaign view & lineage tree
-    │       ├── Campaigns.jsx                # Campaign setup wizard & list
-    │       ├── Dashboard.jsx                # System risk & telemetry dashboard
-    │       ├── Evaluation.jsx               # Single prompt test execution page
-    │       ├── PromptLibrary.jsx            # Adversarial prompt library page
-    │       └── Results.jsx                  # Single evaluation history logs
-```
+* **Status**: 100% Functional & Preserved.
+* **Functionality**:
+  * Asynchronous Single Prompt Evaluation pipeline with HTTP `202 Accepted` and status polling.
+  * Adversarial Prompt Library CRUD with category filtering, search, severity badges, and inspect modal.
+  * System Risk & Telemetry Dashboard with aggregate metrics and recent evaluation history.
+  * Results page with comprehensive evaluation breakdown.
+* **Regression Confirmation**: Phase 1 single evaluation endpoints and UI continue to work without regression through `processEvaluation` and `evaluationController.js`.
 
 ---
 
-## 7. Next Steps & Prompt for ChatGPT
+## 5. Phase 2 Implementation
 
-When sharing this file with ChatGPT, use the following prompt format:
+* **Components Implemented**:
+  1. **Provider Abstraction Layer** ([`aiProviderService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/aiProviderService.js)): Single gateway for multi-provider API calls, backoff delays, and runtime metadata tracking.
+  2. **Provider & Target Model Registry** ([`providerModels.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/config/providerModels.js)): Maps valid models to providers, resolves incompatible target strings, and defines defaults.
+  3. **Target Service** ([`targetService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/targetService.js)): Executes target LLMs with resolved provider models and prevents silent mock responses.
+  4. **AI Safety Judge** ([`judgeService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/judgeService.js)): Analyzes target response vs. adversarial prompt, returning structured JSON scores (0–100) and vulnerability flags.
+  5. **Adversarial Attack Generator** ([`attackGeneratorService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/attackGeneratorService.js)): Generates structured attacks categorized by attack type and difficulty.
+  6. **Attack Mutation Engine** ([`attackMutationService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/attackMutationService.js)): Automatically mutates successful attacks across up to 3 rounds.
+  7. **Campaign Orchestrator** ([`campaignOrchestrator.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/campaignOrchestrator.js)): Manages the asynchronous campaign lifecycle (`GENERATE` → `TEST` → `JUDGE` → `MUTATE` → `RE-TEST` → `FINALIZE`).
+  8. **Campaign Controller & Routes** ([`campaignController.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/controllers/campaignController.js), [`campaignRoutes.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/routes/campaignRoutes.js)): REST API mounted at `/api/campaigns`.
+  9. **Frontend Campaign UI** ([`Campaigns.jsx`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/frontend/src/pages/Campaigns.jsx), [`CampaignDetail.jsx`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/frontend/src/pages/CampaignDetail.jsx)): Campaign list, modal wizard with provider-to-model dropdown synchronization, live progress polling, mutation lineage tree, and provider observability badges.
 
-```
-Hello ChatGPT! I am sharing `AI_HANDOFF.md` with you. This file contains the complete, up-to-date state of our LLM Red-Teaming & Evaluation Platform codebase (architecture, schemas, API endpoints, error handling, completed features in Phase 1 & Phase 2, and file maps).
+---
 
-Please read `AI_HANDOFF.md` carefully. Based on this complete context, tell me what steps or enhancements we should tackle next in accordance with our project workflow.
-```
+## 6. Critical Architecture Bug Discovered During Phase 2
+
+* **Problem**: In earlier iterations, campaigns configured with `provider = gemini` and default `targetModel = gpt-4` passed `gpt-4` directly to Gemini. Google Gemini rejected the invalid model string, causing `aiProviderService.js` to trigger its offline Mock fallback. The campaign finished with status `completed`, but all target outputs were actually `[Mock response from gpt-4]`.
+* **Architectural Fix**:
+  1. Decoupled **Target Model** from **AI Provider Gateway**.
+  2. Created [`backend/config/providerModels.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/config/providerModels.js) with `resolveModelForProvider(provider, modelId)`.
+  3. Integrated `resolveModelForProvider` inside [`targetService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/targetService.js) and [`aiProviderService.js`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/backend/services/aiProviderService.js).
+  4. Updated [`Campaigns.jsx`](file:///c:/Users/mayan/OneDrive/Desktop/Clg%20Proj%20Try%201/llm-red-teaming-and-evaluation/frontend/src/pages/Campaigns.jsx) so selecting a provider dynamically constrains the target model dropdown to valid models and resets to the provider's verified default (`gemini-3.5-flash-lite`).
+
+---
+
+## 7. Validation Environment Bug
+
+* **Problem**: During initial execution of `validateTargetArchitecture.js`, the script used `require('dotenv').config({ path: '../.env' })`. When executed from the `backend/` directory, relative path resolution failed to locate `.env`, resulting in `GEMINI_API_KEY is not defined`.
+* **Fix Applied**:
+  ```javascript
+  const path = require('path');
+  require('dotenv').config({
+    path: path.resolve(__dirname, '../.env')
+  });
+  ```
+* **Result**: Environment variables load correctly regardless of execution directory (`injected env (3) from .env`), allowing all validation tests to run against the live API.
+
+---
+
+## 8. Final Validation Results
+
+Validation suite executed via `node scripts/validateTargetArchitecture.js`:
+
+| Test | Description | Provider | Model | isMock | Result | Status |
+| :--- | :--- | :--- | :--- | :---: | :--- | :---: |
+| **Test A** | Direct Provider Test | `gemini` | `gemini-3.5-flash-lite` | `false` | `"GEMINI_TEST_SUCCESS"` | **PASSED ✅** |
+| **Test B** | Target Model Service | `gemini` | `gemini-3.5-flash-lite` | `false` | Real LLM response received | **PASSED ✅** |
+| **Test C** | AI Safety Judge Service | `gemini` | `gemini-3.5-flash-lite` | `false` | Score: 0/100, Flags: `[none]` | **PASSED ✅** |
+| **Test D** | AI Mutation Engine | `gemini` | `gemini-3.5-flash-lite` | `false` | Generated Round 2 mutation | **PASSED ✅** |
+| **Test E** | Full Real Campaign | `gemini` | `gemini-3.5-flash-lite` | `false` | End-to-end multi-round execution | **PASSED ✅** |
+
+---
+
+## 9. Real Gemini Campaign Validation
+
+* **Observed Campaign Runs**:
+  * **Campaign A** (ID: `6ab57a18717d81c03d12598d`):
+    * Generated Attacks: 3 | Completed Evaluations: 3 | Successful Attacks: 0 | Score: 0/100 | Risk Level: `Very Safe` | `isMock: false`
+  * **Campaign B** (ID: `6ab57b5243f89b9d4264290d`):
+    * Initial Attacks: 3 | Detected Bypass: 1 (Attack #1 scored 85/100) | Triggered Round 2 Mutation: Yes (Attack #4 created) | Total Evaluations: 4 | Success Rate: 25% | Score: 21/100 | Risk Level: `Low Risk` | `isMock: false`
+* *Notice*: Safety test results represent specific adversarial test prompt sets and do not constitute an absolute or universal guarantee of model security.
+
+---
+
+## 10. Observability / Telemetry
+
+Every evaluation record and UI finding displays:
+* `providerUsed`: Exact provider executing the call (`gemini`, `openrouter`, `groq`, `ollama`, `mock`).
+* `modeUsed`: Execution mode (`EXTERNAL_API`, `LOCAL`, `MOCK`).
+* `modelUsed`: Specific model name resolved and evaluated (`gemini-3.5-flash-lite`).
+* `isMock`: Explicit boolean flag (`false` for real external API execution, `true` for simulated offline execution).
+
+*Why this is critical*: Prevents silent fallback failures, ensures full audit transparency, and allows users to differentiate genuine AI responses from mock fallback data.
+
+---
+
+## 11. Error Handling and Fallback Behavior
+
+* **Missing API Key**: System logs a clear error, notifies the user, and uses mock fallback with `isMock: true` instead of crashing.
+* **Rate Limits / 503 Capacity**: `aiProviderService.js` incorporates retry delays and backoff handling across verified candidates.
+* **Invalid Provider/Model Combinations**: `resolveModelForProvider` intercepts incompatible pairs and applies verified defaults.
+* **Non-Compliant LLM Output**: Regex cleaning handles code fences (````json ... ````) and defaults to `judge_parse_error` flag if JSON parsing fails.
+* **Campaign Stop Request**: Users can click "Stop Campaign", which immediately halts further rounds and finalizes metrics.
+
+---
+
+## 12. Regression Testing
+
+* **Phase 1 Single Evaluation**: Fully verified; asynchronous run, polling, and results display operate normally.
+* **Prompt Library**: Search, category filters, and prompt creation remain intact.
+* **Dashboard Telemetry**: Correctly aggregates prompt counts, evaluations, and risk scores.
+* **Multi-Provider Flexibility**: MOCK and LOCAL (Ollama) modes remain available.
+
+---
+
+## 13. Security / Secret Handling
+
+* **API Keys**: Stored exclusively in `backend/.env` (which is in `.gitignore`).
+* **No Secret Leaks**: API keys are never exposed in frontend bundles, client responses, git commits, or console logs.
+* **Environment Configuration**: Template provided via `backend/.env.example`.
+
+---
+
+## 14. Known Limitations
+
+1. **Free-Tier Rate Limits**: Google Gemini and OpenRouter free tiers enforce per-minute request limits (RPM/TPM).
+2. **Model Deprecations**: Google's API has deprecated `gemini-1.5-flash`, `gemini-1.5-pro`, and `gemini-2.0-flash` on the current endpoint version. `gemini-3.5-flash-lite` is the active verified working model.
+3. **Mutation Round Bound**: Max mutation depth is bounded to 3 rounds to prevent runaway execution loops.
+4. **Database Dependency**: Requires a running MongoDB instance.
+
+---
+
+## 15. Files Changed During Phase 2
+
+| File Path | Status | Description |
+| :--- | :--- | :--- |
+| `backend/config/providerModels.js` | **[NEW]** | Target model & AI provider registry and model resolver. |
+| `backend/services/aiProviderService.js` | **[NEW]** | Multi-provider abstraction gateway with observability metadata. |
+| `backend/models/Campaign.js` | **[NEW]** | Mongoose schema for red-team campaigns. |
+| `backend/models/Prompt.js` | **[MODIFIED]** | Extended with campaign ID, round, parent prompt ID, and mutation type. |
+| `backend/models/Evaluation.js` | **[MODIFIED]** | Extended with campaign ID, round, `isSuccessfulAttack`, `providerUsed`, `isMock`. |
+| `backend/services/attackGeneratorService.js` | **[NEW]** | AI adversarial attack generator with category templates. |
+| `backend/services/attackMutationService.js` | **[NEW]** | Multi-round AI attack mutation engine. |
+| `backend/services/targetService.js` | **[MODIFIED]** | Refactored to use `resolveModelForProvider` and `aiProviderService`. |
+| `backend/services/judgeService.js` | **[MODIFIED]** | Upgraded with defensive parsing and `modelUsed` observability. |
+| `backend/services/campaignOrchestrator.js` | **[NEW]** | Multi-round background campaign execution loop. |
+| `backend/controllers/campaignController.js` | **[NEW]** | REST controller for campaign creation, control, and metrics. |
+| `backend/routes/campaignRoutes.js` | **[NEW]** | Router for `/api/campaigns`. |
+| `backend/scripts/validateTargetArchitecture.js` | **[NEW]** | Script-independent validation test runner for Tests A–E. |
+| `backend/server.js` | **[MODIFIED]** | Registered `/api/campaigns` route endpoint. |
+| `frontend/src/api/campaigns.js` | **[NEW]** | Axios client methods for campaign endpoints. |
+| `frontend/src/pages/Campaigns.jsx` | **[NEW]** | Campaign listing and creation modal page. |
+| `frontend/src/pages/CampaignDetail.jsx` | **[NEW]** | Live campaign dashboard, lineage tree, and provider badges. |
+| `frontend/src/pages/Evaluation.jsx` | **[MODIFIED]** | Target model dropdown updated to match verified models. |
+| `frontend/src/components/Sidebar.jsx` | **[MODIFIED]** | Added navigation link for Campaigns tab. |
+| `frontend/src/App.jsx` | **[MODIFIED]** | Added routes for `/campaigns` and `/campaigns/:id`. |
+| `frontend/src/pages/Dashboard.jsx` | **[MODIFIED]** | Added quick access button for starting campaigns. |
+| `change.md` | **[MODIFIED]** | Chronological log of Phase 2 development steps. |
+
+---
+
+## 16. Important Commands
+
+* **Start Backend Server**:
+  ```bash
+  cd backend
+  npm install
+  npx nodemon server.js
+  ```
+* **Start Frontend Application**:
+  ```bash
+  cd frontend
+  npm install
+  npm run dev
+  ```
+* **Run Architecture Validation Suite**:
+  ```bash
+  cd backend
+  node scripts/validateTargetArchitecture.js
+  ```
+
+---
+
+## 17. Current Project Status
+
+* **Phase 1 (Core Single Evaluation & Library)**: Implemented, verified, and regression-tested.
+* **Phase 2 (Automated AI Red-Teaming Campaigns & Lineage)**: Implemented, verified, and audited.
+* **Multi-Provider Architecture**: Implemented with Google Gemini (`gemini-3.5-flash-lite`) verified operational on real API calls.
+* **Mock Fallback Engine**: Implemented and verified for offline/zero-credential operation.
+
+---
+
+## 18. Next Recommended Development Steps
+
+1. **PDF / HTML Security Report Export**: Add a one-click downloadable summary report of campaign findings for compliance documentation.
+2. **Custom Target API Endpoint Option**: Allow security engineers to red-team custom HTTP endpoints by providing a target URL and bearer token in the UI.
+3. **Advanced Attack Techniques**: Expand generation templates to include Base64 encoding, multi-lingual framing, and adversarial suffix injection.

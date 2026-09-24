@@ -12,6 +12,30 @@ const CATEGORY_OPTIONS = [
   { id: 'misinformation', label: 'Misinformation' }
 ];
 
+const PROVIDER_TARGET_MODELS = {
+  gemini: [
+    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (Verified / Recommended)' }
+  ],
+  openrouter: [
+    { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', label: 'Gemini 2.0 Flash Lite (OpenRouter Free)' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B Instruct (OpenRouter Free)' }
+  ],
+  groq: [
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile' },
+    { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7b 32768' }
+  ],
+  ollama: [
+    { id: 'llama3.2', label: 'Llama 3.2 (Local)' },
+    { id: 'mistral', label: 'Mistral 7B (Local)' },
+    { id: 'custom-local-model', label: 'Custom Local Model' }
+  ],
+  mock: [
+    { id: 'gpt-4', label: 'GPT-4 (Mock Simulation)' },
+    { id: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet (Mock Simulation)' },
+    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (Mock Simulation)' }
+  ]
+};
+
 const Campaigns = () => {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
@@ -23,7 +47,7 @@ const Campaigns = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    targetModel: 'gpt-4',
+    targetModel: 'gemini-3.5-flash-lite',
     provider: 'gemini',
     executionMode: 'EXTERNAL_API',
     difficulty: 'Medium',
@@ -45,6 +69,30 @@ const Campaigns = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProviderChange = (newProvider) => {
+    const defaultModel = PROVIDER_TARGET_MODELS[newProvider]?.[0]?.id || 'gemini-3.5-flash-lite';
+    setFormData(prev => ({
+      ...prev,
+      provider: newProvider,
+      targetModel: defaultModel
+    }));
+  };
+
+  const handleExecutionModeChange = (newMode) => {
+    let newProvider = formData.provider;
+    if (newMode === 'MOCK') newProvider = 'mock';
+    else if (newMode === 'LOCAL') newProvider = 'ollama';
+    else if (newMode === 'EXTERNAL_API' && formData.provider === 'mock') newProvider = 'gemini';
+
+    const defaultModel = PROVIDER_TARGET_MODELS[newProvider]?.[0]?.id || 'gemini-3.5-flash-lite';
+    setFormData(prev => ({
+      ...prev,
+      executionMode: newMode,
+      provider: newProvider,
+      targetModel: defaultModel
+    }));
   };
 
   const handleCategoryToggle = (catId) => {
@@ -110,6 +158,8 @@ const Campaigns = () => {
         return <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Draft</span>;
     }
   };
+
+  const currentModelOptions = PROVIDER_TARGET_MODELS[formData.provider] || PROVIDER_TARGET_MODELS.gemini;
 
   return (
     <div className="space-y-6">
@@ -226,11 +276,40 @@ const Campaigns = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. GPT-4 Safety & Jailbreak Benchmark"
+                  placeholder="e.g. Gemini 3.5 Flash Safety Benchmark"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Execution Mode</label>
+                  <select
+                    value={formData.executionMode}
+                    onChange={e => handleExecutionModeChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="EXTERNAL_API">EXTERNAL API (Real LLMs / Keys)</option>
+                    <option value="LOCAL">LOCAL (Ollama Engine)</option>
+                    <option value="MOCK">MOCK (Deterministic $0 Fallback)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">AI Provider</label>
+                  <select
+                    value={formData.provider}
+                    onChange={e => handleProviderChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="gemini">Google Gemini (Recommended / Verified)</option>
+                    <option value="openrouter">OpenRouter (Free Tier Models)</option>
+                    <option value="groq">Groq (Fast Free Tier)</option>
+                    <option value="ollama">Ollama (Local Models)</option>
+                    <option value="mock">Mock Fallback</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -240,41 +319,13 @@ const Campaigns = () => {
                   onChange={e => setFormData({ ...formData, targetModel: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  <option value="gpt-4">GPT-4 (Target Model)</option>
-                  <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                  <option value="llama-3.3-70b">Llama 3.3 70B</option>
-                  <option value="custom-local-model">Custom Local Model</option>
+                  {currentModelOptions.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
                 </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Execution Mode</label>
-                  <select
-                    value={formData.executionMode}
-                    onChange={e => setFormData({ ...formData, executionMode: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="EXTERNAL_API">EXTERNAL API (Free API Keys)</option>
-                    <option value="LOCAL">LOCAL (Ollama)</option>
-                    <option value="MOCK">MOCK (Deterministic $0 Fallback)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">AI Provider</label>
-                  <select
-                    value={formData.provider}
-                    onChange={e => setFormData({ ...formData, provider: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="gemini">Google Gemini (Recommended / Free)</option>
-                    <option value="openrouter">OpenRouter (Free Tier Models)</option>
-                    <option value="groq">Groq (Fast Free Tier)</option>
-                    <option value="ollama">Ollama (Local Models)</option>
-                    <option value="mock">Mock Fallback</option>
-                  </select>
-                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Available target models strictly matched to selected provider (<code>{formData.provider}</code>).
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -333,7 +384,7 @@ const Campaigns = () => {
                   $0 Free Cost Guaranteed
                 </div>
                 <div>
-                  This campaign will use your selected provider free tier. If no API key is provided in <code>.env</code>, it will automatically fall back to the deterministic mock engine without error.
+                  This campaign will execute using Google Gemini <code>gemini-3.5-flash-lite</code> with full observability.
                 </div>
               </div>
 

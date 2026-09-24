@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const campaignSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, default: '' },
-  targetModel: { type: String, required: true, default: 'gpt-4' },
+  targetModel: { type: String, required: true, default: 'gemini-3.5-flash-lite' },
   executionMode: {
     type: String,
     enum: ['MOCK', 'EXTERNAL_API', 'LOCAL'],

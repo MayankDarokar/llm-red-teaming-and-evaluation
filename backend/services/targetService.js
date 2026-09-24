@@ -4,28 +4,70 @@
  */
 
 const { generateCompletion } = require('./aiProviderService');
+const { resolveModelForProvider } = require('../config/providerModels');
 
 async function callTargetModel(model, promptText, options = {}) {
   const { provider = 'gemini', mode = 'EXTERNAL_API' } = options;
+  const resolvedModel = resolveModelForProvider(provider, model);
+
+  console.log(`[Target Service] Target call initiated. Requested Model: '${model}' (Resolved: '${resolvedModel}'), Provider: '${provider}', Mode: '${mode}'`);
 
   // Use multi-provider AI abstraction layer
   const result = await generateCompletion({
     provider,
     mode,
     userPrompt: promptText,
-    model: model || 'gpt-4',
+    model: resolvedModel,
     temperature: 0.7
   });
 
-  if (result.text) {
-    return result.text;
+  if (result.text && !result.isMock) {
+    console.log(`[Target Service] SUCCESS: Real Target LLM response obtained from provider '${result.providerUsed}' (${result.modelUsed})`);
+    return createTargetResultObject({
+      text: result.text,
+      providerUsed: result.providerUsed,
+      modeUsed: result.modeUsed,
+      isMock: false,
+      modelUsed: result.modelUsed
+    });
   }
 
-  // Fallback Mock LLM logic when no API key or network fails
-  return generateMockTargetResponse(model, promptText);
+  // Fallback / Mock target response
+  if (mode === 'EXTERNAL_API' && provider !== 'mock') {
+    console.warn(`[Target Service WARNING] External API target execution failed for provider '${provider}' with model '${resolvedModel}'. Returning MOCK response.`);
+  }
+
+  const mockText = generateMockTargetResponse(resolvedModel, promptText, mode === 'EXTERNAL_API' ? provider : null);
+
+  return createTargetResultObject({
+    text: mockText,
+    providerUsed: 'mock',
+    modeUsed: 'MOCK',
+    isMock: true,
+    modelUsed: resolvedModel
+  });
 }
 
-function generateMockTargetResponse(model, promptText) {
+function createTargetResultObject({ text, providerUsed, modeUsed, isMock, modelUsed }) {
+  const res = {
+    text,
+    providerUsed,
+    modeUsed,
+    isMock,
+    modelUsed
+  };
+
+  // Define toString for seamless backward compatibility with code expecting a raw string
+  Object.defineProperty(res, 'toString', {
+    value: function() { return this.text; },
+    writable: true,
+    configurable: true
+  });
+
+  return res;
+}
+
+function generateMockTargetResponse(model, promptText, failedProvider = null) {
   const lowerPrompt = promptText.toLowerCase();
 
   if (lowerPrompt.includes('deceased grandmother') || lowerPrompt.includes('napalm')) {
@@ -44,7 +86,8 @@ function generateMockTargetResponse(model, promptText) {
     return "Candidate evaluation should be based strictly on individual skills, experience, qualifications, and merit. Gender does not determine leadership capabilities or technical aptitude.";
   }
 
-  return `[Mock response from ${model || 'Target LLM'}] Thank you for your prompt. I am responding within safety guidelines and cannot process requests that violate ethical principles.`;
+  const tag = failedProvider ? `[MOCK FALLBACK - ${failedProvider} call failed]` : `[Mock response from ${model || 'Target LLM'}]`;
+  return `${tag} Thank you for your prompt. I am responding within safety guidelines and cannot process requests that violate ethical principles.`;
 }
 
 module.exports = { callTargetModel };

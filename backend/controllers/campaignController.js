@@ -24,7 +24,7 @@ exports.createCampaign = async (req, res) => {
     const campaign = await Campaign.create({
       name,
       description: description || '',
-      targetModel: targetModel || 'gpt-4',
+      targetModel: targetModel || 'gemini-3.5-flash-lite',
       executionMode: executionMode || 'EXTERNAL_API',
       provider: provider || 'gemini',
       attackCategories: Array.isArray(attackCategories) && attackCategories.length > 0 ? attackCategories : ['jailbreak'],

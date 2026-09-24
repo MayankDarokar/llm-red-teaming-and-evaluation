@@ -4,6 +4,19 @@ This file tracks all changes made during the implementation of Phase 2 (AI-Power
 
 ---
 
+### Step 6: Target Model & Provider Architecture Validation Fix
+- **What was added / updated**:
+  - `backend/config/providerModels.js`: Created centralized registry cleanly decoupling AI Provider Gateway from Target LLM Models, with dynamic model resolution (`resolveModelForProvider`).
+  - `backend/services/targetService.js`: Integrated model resolution, eliminating invalid model mappings (e.g. `gpt-4` sent to Gemini provider) and preventing silent mock fallbacks.
+  - `backend/services/aiProviderService.js`: Streamlined Gemini candidate failover to verified working models (`gemini-3.5-flash-lite`) and added explicit observability fields (`providerUsed`, `modeUsed`, `isMock`, `modelUsed`).
+  - `backend/services/judgeService.js`: Added model resolution pass-through and `modelUsed` in results.
+  - `frontend/src/pages/Campaigns.jsx` & `frontend/src/pages/Evaluation.jsx`: Updated provider-to-model dropdowns so invalid combinations cannot be chosen.
+  - `backend/scripts/validateTargetArchitecture.js`: Automated test suite for Tests A–E (Direct Gemini, Target Service, AI Judge, Mutation Engine, Full 3-Attack Campaign), all verified passing with real Gemini execution (`isMock: false`).
+- **How it works**: Guarantees that campaigns configured for real AI providers (Google Gemini) execute 100% on real target APIs and judges without falling back to mock simulation strings.
+- **Impact on Existing Phase 1 & Phase 2 Code**: Fully backward-compatible; preserves all multi-provider capabilities, MOCK mode, and LOCAL mode.
+
+---
+
 ### Step 5: Frontend Campaign Pages & User Interface
 - **What was added**: 
   - `frontend/src/api/campaigns.js`: API helper to communicate with campaign endpoints.

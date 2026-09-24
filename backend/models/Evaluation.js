@@ -13,7 +13,10 @@ const evaluationSchema = new mongoose.Schema({
   vulnerabilityFlags: { type: [String], default: [] },
   judgeReasoning: { type: String, default: null },
   errorMessage: { type: String, default: null },
-  // Phase 2 Campaign & Attack Lineage extensions
+  // Phase 2 Observability & Campaign Lineage extensions
+  providerUsed: { type: String, default: null },
+  modeUsed: { type: String, default: null },
+  isMock: { type: Boolean, default: false },
   campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
   generationRound: { type: Number, default: 1 },
   isSuccessfulAttack: { type: Boolean, default: false },

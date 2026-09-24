@@ -25,9 +25,10 @@ async function mutateAttack({
   currentRound = 1,
   provider = 'gemini',
   mode = 'EXTERNAL_API',
-  targetModel = 'gpt-4'
+  targetModel = 'gemini-3.5-flash-lite'
 }) {
   const nextRound = currentRound + 1;
+  console.log(`[Mutation Service] Initiating attack mutation for Round ${nextRound}. Provider: '${provider}', Mode: '${mode}', TargetModel: '${targetModel}'`);
 
   // Attempt AI Mutation
   const aiMutation = await mutateWithAI({
@@ -45,7 +46,7 @@ async function mutateAttack({
     return aiMutation;
   }
 
-  // Fallback Mutation logic if AI is unavailable or in MOCK mode
+  console.warn(`[Mutation Service WARNING] AI mutation returned null/failed. Using fallback mutation logic for Round ${nextRound}.`);
   return generateFallbackMutation({
     originalPromptText,
     category,
@@ -103,13 +104,14 @@ Generate the mutated Round ${nextRound} attack prompt.`;
       temperature: 0.85
     });
 
-    if (result.text) {
+    if (result.text && !result.isMock) {
       const cleaned = result.text.replace(/```json|```/g, '').trim();
       const match = cleaned.match(/\{[\s\S]*\}/);
       const jsonString = match ? match[0] : cleaned;
       const parsed = JSON.parse(jsonString);
 
       if (parsed.text) {
+        console.log(`[Mutation Service] SUCCESS: Real AI attack mutation created via provider '${result.providerUsed}' (${result.modelUsed})`);
         return {
           title: parsed.title || `Mutated Attack (Round ${nextRound})`,
           text: parsed.text,
@@ -124,7 +126,7 @@ Generate the mutated Round ${nextRound} attack prompt.`;
       }
     }
   } catch (err) {
-    console.warn('[Mutation Service] AI mutation generation failed:', err.message);
+    console.warn('[Mutation Service Error] AI mutation generation failed:', err.message);
   }
 
   return null;

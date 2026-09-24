@@ -242,6 +242,13 @@ const CampaignDetail = () => {
                               Mutated: {item.promptId.mutationType}
                             </span>
                           )}
+                          {item.providerUsed && (
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                              item.isMock ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {item.isMock ? `Mock (${item.providerUsed})` : `Real ${item.providerUsed}`}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
                           Technique: {item.promptId?.technique || 'direct'}

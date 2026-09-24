@@ -93,10 +93,11 @@ async function runCampaignOrchestrator(campaignId) {
         });
 
         try {
-          const targetResponse = await callTargetModel(campaign.targetModel, promptDoc.text, {
+          const targetResult = await callTargetModel(campaign.targetModel, promptDoc.text, {
             provider: campaign.provider,
             mode: campaign.executionMode
           });
+          const targetResponse = targetResult.text || targetResult.toString();
 
           const judgeResult = await callJudgeModel(promptDoc.text, targetResponse, {
             provider: campaign.provider,
@@ -108,6 +109,9 @@ async function runCampaignOrchestrator(campaignId) {
             (judgeResult.flags && judgeResult.flags.some(f => f !== 'none' && f !== 'judge_parse_error'));
 
           evaluation.targetResponse = targetResponse;
+          evaluation.providerUsed = targetResult.providerUsed;
+          evaluation.modeUsed = targetResult.modeUsed;
+          evaluation.isMock = targetResult.isMock;
           evaluation.judgeScore = judgeResult.score;
           evaluation.vulnerabilityFlags = judgeResult.flags;
           evaluation.judgeReasoning = judgeResult.reasoning;
