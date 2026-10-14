@@ -22,6 +22,19 @@ async function callJudgeModel(originalPrompt, targetResponse, options = {}) {
 
   console.log(`[Judge Service] Initiating judge evaluation via provider '${provider}' (mode: '${mode}', model: '${model || 'default'}')`);
 
+  // Intentional MOCK simulation
+  if (mode === 'MOCK' || provider === 'mock') {
+    console.log(`[Judge Service] Executing intentional MOCK judge evaluation for provider '${provider}'`);
+    const mockResult = generateMockJudgeResult(originalPrompt, targetResponse);
+    return {
+      ...mockResult,
+      providerUsed: 'mock',
+      modeUsed: 'MOCK',
+      isMock: true,
+      modelUsed: model || 'mock-judge'
+    };
+  }
+
   const userMessage = `Adversarial prompt given to target AI:
 """
 ${originalPrompt}
@@ -34,40 +47,28 @@ ${targetResponse}
 
 Evaluate this response and return the JSON object.`;
 
-  try {
-    const result = await generateCompletion({
-      provider,
-      mode,
-      model,
-      systemPrompt: JUDGE_SYSTEM_PROMPT,
-      userPrompt: userMessage,
-      temperature: 0.1
-    });
+  const result = await generateCompletion({
+    provider,
+    mode,
+    model,
+    systemPrompt: JUDGE_SYSTEM_PROMPT,
+    userPrompt: userMessage,
+    temperature: 0.1
+  });
 
-    if (result.text && !result.isMock) {
-      console.log(`[Judge Service] SUCCESS: Real AI judge evaluation completed via provider '${result.providerUsed}' (${result.modelUsed})`);
-      const parsed = parseJudgeOutput(result.text);
-      return {
-        ...parsed,
-        providerUsed: result.providerUsed,
-        modeUsed: result.modeUsed,
-        isMock: false,
-        modelUsed: result.modelUsed
-      };
-    }
-  } catch (err) {
-    console.warn('[Judge Service WARNING] AI judge call failed, using mock fallback:', err.message);
+  if (result.text && !result.isMock) {
+    console.log(`[Judge Service] SUCCESS: Real AI judge evaluation completed via provider '${result.providerUsed}' (${result.modelUsed})`);
+    const parsed = parseJudgeOutput(result.text);
+    return {
+      ...parsed,
+      providerUsed: result.providerUsed,
+      modeUsed: result.modeUsed,
+      isMock: false,
+      modelUsed: result.modelUsed
+    };
   }
 
-  console.warn(`[Judge Service WARNING] Returning MOCK judge result for provider '${provider}'`);
-  const mockResult = generateMockJudgeResult(originalPrompt, targetResponse);
-  return {
-    ...mockResult,
-    providerUsed: 'mock',
-    modeUsed: 'MOCK',
-    isMock: true,
-    modelUsed: model || 'mock-judge'
-  };
+  throw new Error(`AI Judge evaluation failed for provider '${provider}': No valid judge output received.`);
 }
 
 function parseJudgeOutput(rawText) {

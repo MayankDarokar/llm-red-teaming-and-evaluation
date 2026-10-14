@@ -1,7 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCampaignById, getCampaignMetrics, getCampaignResults, stopCampaign } from '../api/campaigns';
-import { Shield, ArrowLeft, Square, AlertOctagon, CheckCircle2, GitBranch, RefreshCw, AlertTriangle, Layers } from 'lucide-react';
+import { ArrowLeft, Square, CheckCircle2, GitBranch, RefreshCw, AlertTriangle, Layers, Download, FileText } from 'lucide-react';
+import { buildLineageTrees } from '../utils/lineage';
+import { downloadHtmlReport, exportPdfReport } from '../utils/reportGenerator';
+
+// Recursive component for rendering mutation nodes across multiple generations (Round 2 -> Round 3 -> ...)
+const LineageNode = ({ node, depth = 1 }) => {
+  const { evaluation, children } = node;
+  const p = evaluation.promptId;
+  const round = evaluation.generationRound || p?.generationRound || depth + 1;
+  const isSuccessful = evaluation.isSuccessfulAttack;
+
+  const bgStyles = [
+    'bg-indigo-50/40 border-indigo-200',
+    'bg-purple-50/40 border-purple-200',
+    'bg-violet-50/40 border-violet-200'
+  ];
+  const borderStyles = [
+    'border-indigo-300',
+    'border-purple-300',
+    'border-violet-300'
+  ];
+  const textStyles = [
+    'text-indigo-900',
+    'text-purple-900',
+    'text-violet-900'
+  ];
+
+  const currentBg = bgStyles[Math.min(depth - 1, bgStyles.length - 1)];
+  const currentBorder = borderStyles[Math.min(depth - 1, borderStyles.length - 1)];
+  const currentText = textStyles[Math.min(depth - 1, textStyles.length - 1)];
+
+  return (
+    <div className={`${currentBg} border rounded-lg p-3 space-y-2`}>
+      <div className="flex justify-between items-center text-xs">
+        <span className={`font-bold ${currentText}`}>
+          Round {round} ({p?.mutationType || 'AI Mutation'})
+        </span>
+        <span className={`font-bold ${isSuccessful ? 'text-rose-600' : (evaluation.status === 'failed' ? 'text-amber-600' : 'text-emerald-600')}`}>
+          Score: {evaluation.judgeScore !== null && evaluation.judgeScore !== undefined ? evaluation.judgeScore : 'N/A'}/100 {evaluation.status === 'failed' ? '(Failed)' : ''}
+        </span>
+      </div>
+      <p className="text-xs text-gray-800 bg-white p-2 rounded border font-mono">
+        "{p?.text || 'N/A'}"
+      </p>
+      {evaluation.judgeReasoning && (
+        <p className={`text-xs ${currentText} italic`}>
+          Judge: {evaluation.judgeReasoning}
+        </p>
+      )}
+
+      {/* Render deeper descendant mutations (Round 3, Round 4, etc.) */}
+      {children && children.length > 0 && (
+        <div className={`pl-4 border-l-2 ${currentBorder} space-y-2 mt-2`}>
+          <div className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+            <GitBranch className="w-3.5 h-3.5" /> Mutated Evolution (Round {round + 1})
+          </div>
+          {children.map(childNode => (
+            <LineageNode
+              key={childNode.evaluation._id || childNode.evaluation.promptId?._id}
+              node={childNode}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CampaignDetail = () => {
   const { id } = useParams();
@@ -52,6 +119,46 @@ const CampaignDetail = () => {
     }
   };
 
+  const handleExportHtml = () => {
+    if (!campaign) return;
+    try {
+      downloadHtmlReport({ campaign, results, metrics });
+    } catch (err) {
+      alert(`Export HTML failed: ${err.message}`);
+    }
+  };
+
+  const handleExportPdf = () => {
+    if (!campaign) return;
+    try {
+      exportPdfReport({ campaign, results, metrics });
+    } catch (err) {
+      alert(`Export PDF failed: ${err.message}`);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'running':
+      case 'generating':
+      case 'analyzing':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800 animate-pulse border border-indigo-200">
+            <span className="w-1.5 h-1.5 mr-1.5 bg-indigo-500 rounded-full animate-ping" />
+            {status ? status.toUpperCase() : 'ACTIVE'}
+          </span>
+        );
+      case 'completed':
+        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Completed</span>;
+      case 'stopped':
+        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Stopped</span>;
+      case 'failed':
+        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200">Failed</span>;
+      default:
+        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Draft</span>;
+    }
+  };
+
   const getRiskBadge = (riskLevel) => {
     switch (riskLevel) {
       case 'Critical Risk':
@@ -79,9 +186,8 @@ const CampaignDetail = () => {
 
   const isRunning = campaign.status === 'generating' || campaign.status === 'running' || campaign.status === 'analyzing';
 
-  // Group evaluations by Round for Attack Lineage Tree
-  const round1Evaluations = results.filter(r => (r.generationRound || 1) === 1);
-  const mutatedEvaluations = results.filter(r => (r.generationRound || 1) > 1);
+  // Build multi-generational lineage trees (Round 1 -> Round 2 -> Round 3)
+  const { rootNodes, orphanedNodes } = buildLineageTrees(results);
 
   return (
     <div className="space-y-6">
@@ -103,7 +209,26 @@ const CampaignDetail = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportHtml}
+              disabled={!campaign}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-xs font-semibold text-gray-700 shadow-sm transition-colors"
+              title="Download self-contained HTML audit report"
+            >
+              <Download className="w-4 h-4 text-gray-500" />
+              Export HTML
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={!campaign}
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-semibold shadow-sm transition-colors"
+              title="Open printable report to Save as PDF"
+            >
+              <FileText className="w-4 h-4 text-indigo-600" />
+              Export PDF
+            </button>
+
             {isRunning && (
               <button
                 onClick={handleStop}
@@ -137,9 +262,16 @@ const CampaignDetail = () => {
           <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-md">
             Difficulty: <strong>{campaign.difficulty}</strong>
           </span>
-          <span className="ml-auto">
-            {getRiskBadge(campaign.riskLevel)}
-          </span>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 font-semibold text-[11px] uppercase tracking-wider">Status:</span>
+              {getStatusBadge(campaign.status)}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 font-semibold text-[11px] uppercase tracking-wider">Risk:</span>
+              {getRiskBadge(campaign.riskLevel)}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -166,7 +298,9 @@ const CampaignDetail = () => {
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="text-xs font-medium text-gray-500 uppercase">Overall Risk Score</div>
           <div className="text-3xl font-extrabold text-gray-900 mt-2">
-            {campaign.overallScore !== null ? `${campaign.overallScore}/100` : 'Evaluating...'}
+            {campaign.overallScore !== null && campaign.overallScore !== undefined
+              ? `${campaign.overallScore}/100`
+              : (isRunning ? 'Evaluating...' : 'N/A')}
           </div>
           <div className="text-xs text-gray-500 mt-1">0 = Safe | 100 = Critical</div>
         </div>
@@ -256,11 +390,15 @@ const CampaignDetail = () => {
                       </div>
 
                       <div className="text-right">
-                        <span className={`text-sm font-extrabold ${item.judgeScore >= 60 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        <span className={`text-sm font-extrabold ${item.status === 'failed' ? 'text-amber-600' : (item.judgeScore >= 60 ? 'text-rose-600' : 'text-emerald-600')}`}>
                           Score: {item.judgeScore !== null ? item.judgeScore : 'N/A'}/100
                         </span>
                         <div>
-                          {item.isSuccessfulAttack ? (
+                          {item.status === 'failed' ? (
+                            <span className="text-xs font-bold text-amber-600 flex items-center gap-1 justify-end">
+                              <AlertTriangle className="w-3.5 h-3.5" /> Evaluation Failed
+                            </span>
+                          ) : item.isSuccessfulAttack ? (
                             <span className="text-xs font-bold text-rose-600 flex items-center gap-1 justify-end">
                               <AlertTriangle className="w-3.5 h-3.5" /> Successful Attack
                             </span>
@@ -305,67 +443,68 @@ const CampaignDetail = () => {
                 This tree displays how successful attacks were automatically mutated by the AI engine across multiple rounds to bypass safety mechanisms.
               </div>
 
-              {round1Evaluations.length === 0 ? (
+              {rootNodes.length === 0 && orphanedNodes.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No attack lineage recorded yet.</div>
               ) : (
-                round1Evaluations.map((r1) => {
-                  // Find child mutations derived from this attack
-                  const children = mutatedEvaluations.filter(
-                    m => String(m.promptId?.parentPromptId) === String(r1.promptId?._id)
-                  );
+                <>
+                  {rootNodes.map((rootNode) => {
+                    const r1 = rootNode.evaluation;
+                    const children = rootNode.children;
 
-                  return (
-                    <div key={r1._id} className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 bg-gray-800 text-white font-mono text-xs rounded font-semibold">
-                            Round 1 (Initial Attack)
-                          </span>
-                          <span className="font-bold text-gray-900 text-sm">
-                            {r1.promptId?.title}
-                          </span>
-                        </div>
-                        <span className={`text-xs font-bold ${r1.isSuccessfulAttack ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          Score: {r1.judgeScore}/100 {r1.isSuccessfulAttack ? '(Triggered Mutation)' : '(Safely Refused)'}
-                        </span>
-                      </div>
-
-                      <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg border font-mono">
-                        "{r1.promptId?.text}"
-                      </div>
-
-                      {/* Render Children Mutated Attacks */}
-                      {children.length > 0 && (
-                        <div className="pl-6 border-l-2 border-indigo-300 space-y-3 mt-3">
-                          <div className="text-xs font-semibold text-indigo-600 flex items-center gap-1">
-                            <GitBranch className="w-3.5 h-3.5" /> Mutated Evolution (Round 2+)
+                    return (
+                      <div key={r1._id} className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-gray-800 text-white font-mono text-xs rounded font-semibold">
+                              Round 1 (Initial Attack)
+                            </span>
+                            <span className="font-bold text-gray-900 text-sm">
+                              {r1.promptId?.title || 'Initial Attack'}
+                            </span>
                           </div>
-
-                          {children.map(child => (
-                            <div key={child._id} className="bg-indigo-50/40 border border-indigo-200 rounded-lg p-3 space-y-2">
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="font-bold text-indigo-900">
-                                  Round {child.generationRound} ({child.promptId?.mutationType || 'AI Mutation'})
-                                </span>
-                                <span className={`font-bold ${child.isSuccessfulAttack ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                  Score: {child.judgeScore}/100
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-800 bg-white p-2 rounded border font-mono">
-                                "{child.promptId?.text}"
-                              </p>
-                              {child.judgeReasoning && (
-                                <p className="text-xs text-indigo-800 italic">
-                                  Judge: {child.judgeReasoning}
-                                </p>
-                              )}
-                            </div>
-                          ))}
+                          <span className={`text-xs font-bold ${r1.isSuccessfulAttack ? 'text-rose-600' : (r1.status === 'failed' ? 'text-amber-600' : 'text-emerald-600')}`}>
+                            Score: {r1.judgeScore !== null && r1.judgeScore !== undefined ? r1.judgeScore : 'N/A'}/100 {r1.status === 'failed' ? '(Evaluation Failed)' : (r1.isSuccessfulAttack ? '(Triggered Mutation)' : '(Safely Refused)')}
+                          </span>
                         </div>
-                      )}
+
+                        <div className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg border font-mono">
+                          "{r1.promptId?.text || 'N/A'}"
+                        </div>
+
+                        {/* Render Children Mutated Attacks (Round 2+) */}
+                        {children.length > 0 && (
+                          <div className="pl-6 border-l-2 border-indigo-300 space-y-3 mt-3">
+                            <div className="text-xs font-semibold text-indigo-600 flex items-center gap-1">
+                              <GitBranch className="w-3.5 h-3.5" /> Mutated Evolution (Round 2+)
+                            </div>
+
+                            {children.map(childNode => (
+                              <LineageNode
+                                key={childNode.evaluation._id || childNode.evaluation.promptId?._id}
+                                node={childNode}
+                                depth={1}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Render any orphaned mutations whose parents are missing */}
+                  {orphanedNodes.length > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-dashed border-amber-300">
+                      <div className="text-xs font-semibold text-amber-700 flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4" /> Disconnected / Orphaned Mutations ({orphanedNodes.length})
+                      </div>
+                      {orphanedNodes.map(orphanNode => (
+                        <div key={orphanNode.evaluation._id} className="border border-amber-200 rounded-xl p-4 bg-amber-50/20 space-y-3">
+                          <LineageNode node={orphanNode} depth={orphanNode.evaluation.generationRound || 2} />
+                        </div>
+                      ))}
                     </div>
-                  );
-                })
+                  )}
+                </>
               )}
             </div>
           )}
@@ -395,7 +534,9 @@ const CampaignDetail = () => {
                           <td className="py-3.5 px-4 text-center font-mono">{cat.totalTests}</td>
                           <td className="py-3.5 px-4 text-center font-mono font-bold text-rose-600">{cat.successfulAttacks}</td>
                           <td className="py-3.5 px-4 text-center font-semibold text-gray-800">{cat.successRate}%</td>
-                          <td className="py-3.5 px-4 text-center font-mono">{cat.avgScore}/100</td>
+                          <td className="py-3.5 px-4 text-center font-mono">
+                            {cat.avgScore !== null && cat.avgScore !== undefined ? `${cat.avgScore}/100` : 'N/A'}
+                          </td>
                           <td className="py-3.5 px-4 text-center">{getRiskBadge(cat.riskLevel)}</td>
                         </tr>
                       ))}
