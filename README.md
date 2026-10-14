@@ -7,6 +7,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-3.5_Flash_Lite-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-Multi--Model-blueviolet?logo=openrouter&logoColor=white)](https://openrouter.ai/)
+[![Groq](https://img.shields.io/badge/Groq-Fast_Inference-F05A28?logo=groq&logoColor=white)](https://groq.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-Local_Inference-black?logo=ollama&logoColor=white)](https://ollama.ai/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
 > **An automated, end-to-end AI Red-Teaming and LLM Safety Evaluation Platform.**  
@@ -95,15 +98,26 @@ As Large Language Models (LLMs) are deployed in user-facing and mission-critical
 - Generates transparent, human-readable rationale for every evaluation.
 
 ### 🔌 4. Multi-Provider Gateway & Target Model Registry
-- Decoupled provider abstraction layer supporting **Google Gemini**, **OpenRouter**, **Groq**, **Ollama (Local)**, and **Mock Fallback**.
-- Centralized model resolution registry (`providerModels.js`) that prevents invalid provider/model mismatches.
+- Authoritative provider registry supporting **Google Gemini**, **OpenRouter**, **Groq**, **Ollama (Local)**, and **Mock Fallback**.
+- Dynamic model discovery with 5-minute TTL caching and prioritization of verified free models (`:free`).
+- Bounded HTTP timeouts (25s–30s) and controlled fallback for Google Gemini (`gemini-3.5-flash-lite` → `gemini-3.5-flash`).
 
-### 📊 5. Real-Time Telemetry & Lineage Visualization
-- Visual mutation tree mapping attack evolution across rounds.
-- Real-time risk indicator badges, success rate gauges, and category breakdown charts.
+### ✍️ 5. Manual Custom-Prompt Evaluation Console
+- Standalone manual testing workflow independent of the generated prompt library and campaigns.
+- Dual-mode console (`Prompt Library` vs `Custom Prompt`) with real-time character counting (up to 4,000 characters).
+- Live provider readiness indicators (`Ready`, `Not Configured`, `Offline`).
+- Asynchronous execution with target response preservation on judge failures without fabricated scores.
+
+### 📊 6. Real-Time Telemetry & Multi-Generational Lineage Tree
+- Interactive mutation tree mapping attack evolution across Round 1 → Round 2 → Round 3.
+- Robust normalization supporting populated and unpopulated parent-child relationships, cycle detection, and orphan node safety.
 - Full auditability via execution metadata (`providerUsed`, `modeUsed`, `modelUsed`, `isMock`).
 
-### 📚 6. Adversarial Prompt Library
+### 📄 7. One-Click Compliance & Audit Reports (HTML & PDF)
+- Export complete campaign results as self-contained HTML reports or print-ready PDF summaries.
+- Includes executive scorecards, category risk breakdowns, full evaluation logs, and vulnerability flag tallies.
+
+### 📚 8. Adversarial Prompt Library
 - Centralized database of categorized adversarial prompts with severity levels, tags, and source indicators.
 - Full CRUD capabilities, category filtering, search, and direct single-prompt testing.
 
@@ -260,19 +274,19 @@ graph TD
 
 ## 🤖 AI Provider Architecture
 
-The platform isolates all external model communication inside [`backend/services/aiProviderService.js`](./backend/services/aiProviderService.js) and maps target compatibility through [`backend/config/providerModels.js`](./backend/config/providerModels.js).
+The platform isolates all external model communication inside [`backend/services/aiProviderService.js`](./backend/services/aiProviderService.js) and maps target compatibility through the authoritative registry [`backend/config/providerModels.js`](./backend/config/providerModels.js). Dynamic model discovery, capabilities, and availability checks are managed via [`backend/services/modelDiscoveryService.js`](./backend/services/modelDiscoveryService.js).
 
 ### Provider Support Matrix
 
-| Provider | Integration Type | Active Target Model | Validation Status |
-| :--- | :--- | :--- | :---: |
-| **Google Gemini** | `EXTERNAL_API` (Direct REST) | `gemini-3.5-flash-lite` | **Verified Operational ✅** |
-| **OpenRouter** | `EXTERNAL_API` (OpenAI-compatible) | `google/gemini-2.0-flash-lite-preview-02-05:free`<br>`meta-llama/llama-3.3-70b-instruct:free` | Architecturally Supported |
-| **Groq** | `EXTERNAL_API` (OpenAI-compatible) | `llama-3.3-70b-versatile`<br>`mixtral-8x7b-32768` | Architecturally Supported |
-| **Ollama** | `LOCAL` (Local Daemon HTTP) | `llama3.2`, `mistral` | Architecturally Supported |
-| **Mock Engine** | `MOCK` (Offline Deterministic) | `gpt-4`, `claude-3-5-sonnet`, `gemini-3.5-flash-lite` | **Verified Operational ✅** |
+| Provider | Integration Type | Active Target Models | Discovery & Resilience | Validation Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **Google Gemini** | `EXTERNAL_API` (Direct REST) | `gemini-3.5-flash-lite`<br>`gemini-3.5-flash`<br>`gemini-2.5-flash`<br>`gemini-2.5-pro` | Live model discovery via `GET /v1beta/models`; automatic controlled fallback to `gemini-3.5-flash` on HTTP 503/429. | **Verified Operational ✅** |
+| **OpenRouter** | `EXTERNAL_API` (OpenAI-compatible) | `liquid/lfm-2.5-2.6b:free`<br>`google/gemini-2.0-flash-lite-preview-02-05:free`<br>`meta-llama/llama-3.3-70b-instruct:free`<br>`deepseek/deepseek-r1:free` | Live catalogue discovery via `/api/v1/models` (460+ models); free tier (`:free`) prioritized; bounded timeouts. | **Verified Operational ✅** |
+| **Groq** | `EXTERNAL_API` (OpenAI-compatible) | `openai/gpt-oss-120b`<br>`llama-3.3-70b-versatile`<br>`llama-3.1-8b-instant`<br>`qwen/qwen3.8-27b` | Live discovery via Groq models endpoint; filtered for text chat models; fast sub-second inference. | **Verified Operational ✅** |
+| **Ollama** | `LOCAL` (Local Daemon HTTP) | `llama3.2:3b`<br>`llama3.2`<br>`mistral` | Local discovery via `/api/tags`; auto-detects offline daemon (`ECONNREFUSED`) and provides `ollama pull` instructions on 404. | **Verified Operational ✅** |
+| **Mock Engine** | `MOCK` (Offline Deterministic) | `gpt-4`, `claude-3-5-sonnet`, `gemini-3.5-flash-lite` | Deterministic local simulation; zero API quota; clearly labeled with `isMock: true`. | **Verified Operational ✅** |
 
-> 📌 **Gemini Validation Note**: The primary active provider is Google Gemini using the verified active model `gemini-3.5-flash-lite`. Validation confirmed 100% genuine execution with telemetry returning `providerUsed: "gemini"`, `modelUsed: "gemini-3.5-flash-lite"`, and `isMock: false`.
+> 📌 **Multi-Provider Reliability**: Real provider failures never silently degrade into mock successes. Every evaluation explicitly reports `providerUsed`, `modelUsed`, `modeUsed`, and `isMock`. If an evaluation fails, the platform records a terminal `failed` state with sanitized error messages and preserves the raw target response if judging fails.
 
 ---
 
@@ -416,17 +430,17 @@ llm-red-teaming-and-evaluation/
 ├── README.md                                   # Authoritative root project documentation
 │
 ├── backend/
-│   ├── .env.example                            # Environment variables template
+│   ├── .env.example                            # Safe environment variables template
 │   ├── package.json                            # Backend dependencies & metadata
 │   ├── server.js                               # Express application entrypoint
 │   │
 │   ├── config/
 │   │   ├── db.js                               # MongoDB connection setup
-│   │   └── providerModels.js                   # Target model registry & provider resolver
+│   │   └── providerModels.js                   # Authoritative model registry & resolver
 │   │
 │   ├── controllers/
 │   │   ├── campaignController.js               # Red-team campaign lifecycle controller
-│   │   ├── evaluationController.js             # Async single evaluation controller
+│   │   ├── evaluationController.js             # Async single & custom prompt evaluation controller
 │   │   └── promptController.js                 # Adversarial prompt CRUD controller
 │   │
 │   ├── models/
@@ -440,20 +454,28 @@ llm-red-teaming-and-evaluation/
 │   │   ├── campaignRoutes.js                   # /api/campaigns endpoints
 │   │   ├── evaluationRoutes.js                 # /api/evaluations endpoints
 │   │   ├── promptRoutes.js                     # /api/prompts endpoints
+│   │   ├── providerRoutes.js                   # /api/providers dynamic discovery endpoints
 │   │   └── statsRoutes.js                      # /api/stats dashboard aggregate endpoints
 │   │
 │   ├── scripts/
+│   │   ├── diagnoseGeminiModels.js             # Read-only Gemini model discovery diagnostic
 │   │   ├── migrateStatus.js                    # Database status normalization utility
 │   │   ├── seed.js                             # Initial database seed script
+│   │   ├── testCampaignFailureIntegrity.js     # Campaign failure & metric integrity regression suite
+│   │   ├── testCampaignStopRegression.js       # Campaign stop metric finalization regression suite
+│   │   ├── testGeminiFallback.js               # Gemini 503/429 controlled fallback regression suite
+│   │   ├── testPhase3MultiProvider.js          # Multi-provider, discovery & custom eval regression suite
+│   │   ├── testProviderSelection.js            # Provider routing & explicit selection regression suite
 │   │   └── validateTargetArchitecture.js       # Architecture verification suite (Tests A–E)
 │   │
 │   └── services/
-│       ├── aiProviderService.js                # Multi-provider abstraction gateway
+│       ├── aiProviderService.js                # Multi-provider abstraction gateway (timeouts & fallback)
 │       ├── attackGeneratorService.js           # Adversarial attack synthesis service
 │       ├── attackMutationService.js            # Multi-round evolutionary mutation service
 │       ├── campaignOrchestrator.js             # Background campaign execution engine
 │       ├── evaluationService.js                # Evaluation helper utilities
 │       ├── judgeService.js                     # AI safety judge evaluation service
+│       ├── modelDiscoveryService.js            # Dynamic model discovery & caching service
 │       └── targetService.js                    # Target model execution service
 │
 └── frontend/
@@ -471,6 +493,7 @@ llm-red-teaming-and-evaluation/
         │   ├── campaigns.js                    # Campaign API client methods
         │   ├── evaluations.js                  # Evaluation API client methods
         │   ├── prompts.js                      # Prompt CRUD API client methods
+        │   ├── providers.js                    # Provider readiness & model discovery API
         │   └── stats.js                        # System telemetry API client methods
         │
         ├── assets/                             # Static visual assets
@@ -479,13 +502,19 @@ llm-red-teaming-and-evaluation/
         │   ├── Layout.jsx                      # App layout shell with sidebar
         │   └── Sidebar.jsx                     # Sidebar navigation component
         │
-        └── pages/
-            ├── CampaignDetail.jsx              # Live campaign monitoring & lineage tree
-            ├── Campaigns.jsx                   # Campaign configuration wizard & listing
-            ├── Dashboard.jsx                   # System telemetry & risk overview
-            ├── Evaluation.jsx                  # Single-prompt test execution engine
-            ├── PromptLibrary.jsx               # Adversarial prompt management library
-            └── Results.jsx                     # Historical evaluation findings log
+        ├── pages/
+        │   ├── CampaignDetail.jsx              # Live campaign monitoring & lineage tree
+        │   ├── Campaigns.jsx                   # Campaign configuration wizard & listing
+        │   ├── Dashboard.jsx                   # System telemetry & risk overview
+        │   ├── Evaluation.jsx                  # Single & custom-prompt test execution engine
+        │   ├── PromptLibrary.jsx               # Adversarial prompt management library
+        │   └── Results.jsx                     # Historical evaluation findings log
+        │
+        └── utils/
+            ├── lineage.js                      # Multi-generational lineage resolution & cycle safety
+            ├── reportGenerator.js              # One-click HTML & PDF compliance report generator
+            ├── testLineage.js                  # Lineage resolution regression test suite
+            └── testReportGenerator.js          # Report export utility test suite
 ```
 
 ---
@@ -579,15 +608,39 @@ cd backend
 node scripts/validateTargetArchitecture.js
 ```
 
-### Validation Test Suite (Tests A–E)
+### Comprehensive Regression Test Suites (212 Automated Assertions)
 
-| Test | Objective | Target Component | Verified Outcome | Status |
+The platform includes exhaustive regression suites covering provider resilience, custom prompt execution, lineage resolution, and lifecycle failure integrity (100% mocked, zero API quota consumed):
+
+```bash
+# 1. Multi-Provider, Discovery & Custom Prompt Suite (54 Assertions)
+node backend/scripts/testPhase3MultiProvider.js
+
+# 2. Gemini 503/429 Controlled Fallback & Resilience Suite (49 Assertions)
+node backend/scripts/testGeminiFallback.js
+
+# 3. Explicit Provider Selection & Routing Suite (39 Assertions)
+node backend/scripts/testProviderSelection.js
+
+# 4. Campaign Failure Integrity & Metric Accuracy Suite (49 Assertions)
+node backend/scripts/testCampaignFailureIntegrity.js
+
+# 5. Campaign Stop Finalization & State Suite (4 Assertions)
+node backend/scripts/testCampaignStopRegression.js
+
+# 6. Multi-Generational Lineage Resolution Suite (17 Assertions)
+node frontend/src/utils/testLineage.js
+```
+
+| Test Suite | Scope | Target Component | Verified Outcome | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| **Test A** | Direct Provider Test | `aiProviderService.js` | Direct call to Gemini returned exact expected string with `isMock: false` and `providerUsed: 'gemini'`. | **PASSED ✅** |
-| **Test B** | Target Model Service | `targetService.js` | Resolved model string correctly dispatched real query to Gemini; no mock fallback strings. | **PASSED ✅** |
-| **Test C** | AI Safety Judge | `judgeService.js` | Judge evaluated unsafe input and returned structured JSON with score `0/100` and flags `[none]`. | **PASSED ✅** |
-| **Test D** | AI Mutation Engine | `attackMutationService.js` | Analyzed simulated failure and created mutated variant for Generation Round 2. | **PASSED ✅** |
-| **Test E** | Full Real Campaign | `campaignOrchestrator.js` | Generated 3 real attacks, executed against Gemini, judged responses, and finalized metrics end-to-end. | **PASSED ✅** |
+| **Phase 3 Multi-Provider** | Multi-Provider & Custom Eval | `modelDiscoveryService.js`, `evaluationController.js` | 5 providers registered, dynamic discovery with fallback, custom prompt validation, judge failure target preservation. | **54/54 PASSED ✅** |
+| **Gemini Fallback** | HTTP 503/429 Resilience | `aiProviderService.js` | Primary success avoids fallback; retryable 503/429 triggers `gemini-3.5-flash`; 401/400 fails fast without credential leaks. | **49/49 PASSED ✅** |
+| **Provider Selection** | Explicit Routing | `targetService.js`, `judgeService.js` | Explicit provider selection preserved across endpoints; zero silent degradation to mock on real provider errors. | **39/39 PASSED ✅** |
+| **Failure Integrity** | Metric Protection | `campaignOrchestrator.js` | Failed evaluations excluded from completed-score averages; all-failed campaign sets status `failed` with null score. | **49/49 PASSED ✅** |
+| **Stop Regression** | User Cancellation | `campaignController.js` | User stop request preserves status `stopped` even with zero completed evaluations; metrics properly finalized. | **4/4 PASSED ✅** |
+| **Lineage Resolution** | Mutation Tree Graph | `frontend/src/utils/lineage.js` | Normalized parent-child traversal across Round 1 → Round 2 → Round 3; cycle-safe; orphan-safe. | **17/17 PASSED ✅** |
+| **Architecture Tests (A–E)** | Live Architecture | `validateTargetArchitecture.js` | End-to-end provider execution, judging, mutation, and campaign pipeline. | **PASSED ✅** |
 
 ---
 
@@ -659,11 +712,19 @@ The web frontend provides an interactive workspace for AI security testing:
 | `GET` | `/api/campaigns/:id/results` | Get all evaluations for a campaign | Returns evaluations with prompt populated |
 | `GET` | `/api/campaigns/:id/metrics` | Get computed risk metrics & scorecards | Returns scores, success rates, risk level |
 
+### Model & Provider Discovery (`/api/providers`)
+
+| Method | Endpoint | Description | Response |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/providers` | List all 5 supported providers with configuration status & readiness | Array of `{ provider, displayName, isConfigured, isAvailable, executionMode, defaultModel }` |
+| `GET` | `/api/providers/:provider/models` | Get dynamically discovered or verified models for selected provider | `{ provider, isDiscovered, models: [{ id, name, isFree, pricing }] }` |
+| `GET` | `/api/providers/:provider/status` | Non-generative connectivity & credential readiness check | `{ provider, isConfigured, isAvailable, reason }` |
+
 ### Single Evaluation Pipeline (`/api/evaluations`)
 
 | Method | Endpoint | Description | Request Body / Parameters |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/evaluations/run` | Trigger asynchronous single evaluation | `{ promptId, targetModel }` (Responds `202 Accepted`) |
+| `POST` | `/api/evaluations/run` | Trigger asynchronous single evaluation (library or custom) | `{ promptId, customPrompt, targetModel, provider, executionMode, judgeProvider, judgeModel }` (Responds `202 Accepted`) |
 | `GET` | `/api/evaluations/:id` | Poll evaluation status and result | URL parameter: `id` |
 | `GET` | `/api/evaluations/results` | Get full evaluation history | Returns list of completed evaluations |
 
@@ -711,8 +772,14 @@ The web frontend provides an interactive workspace for AI security testing:
                 - Evolutionary Attack Mutation Engine across 3 generations
                 - Mutation lineage tracking and real-time frontend campaign dashboard
 
-[ PHASE 3 ] ──► FUTURE / PLANNED 📋
-                - See Roadmap below
+[ PHASE 3 ] ──► IN PROGRESS (Current Branch: phase-3-temp-progress) 🚀
+                - Multi-provider support (Gemini, OpenRouter, Groq, Ollama, Mock)
+                - Live dynamic model discovery with 5-minute TTL caching & free-tier prioritization
+                - Standalone manual custom-prompt evaluation console (up to 4,000 characters)
+                - Controlled Gemini fallback (gemini-3.5-flash-lite -> gemini-3.5-flash) with bounded retries
+                - Evaluation lifecycle reliability: no stuck pending/running jobs, failure integrity
+                - Multi-generational lineage resolution & cycle-safe tree visualization
+                - Self-contained HTML and PDF compliance report export utility
 ```
 
 ---

@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const evaluationSchema = new mongoose.Schema({
-  promptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Prompt', required: true },
+  promptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Prompt', required: false, default: null },
+  customPromptText: { type: String, default: null },
+  promptSource: { type: String, enum: ['library', 'custom'], default: 'library' },
   targetModel: { type: String, required: true },
   status: {
     type: String,
@@ -13,10 +15,12 @@ const evaluationSchema = new mongoose.Schema({
   vulnerabilityFlags: { type: [String], default: [] },
   judgeReasoning: { type: String, default: null },
   errorMessage: { type: String, default: null },
-  // Phase 2 Observability & Campaign Lineage extensions
+  // Phase 2 & 3 Observability & Provider metadata
   providerUsed: { type: String, default: null },
   modeUsed: { type: String, default: null },
   isMock: { type: Boolean, default: false },
+  judgeProviderUsed: { type: String, default: null },
+  judgeModelUsed: { type: String, default: null },
   campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
   generationRound: { type: Number, default: 1 },
   isSuccessfulAttack: { type: Boolean, default: false },

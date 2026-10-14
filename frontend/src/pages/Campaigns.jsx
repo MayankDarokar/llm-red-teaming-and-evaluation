@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCampaigns, createCampaign, startCampaign } from '../api/campaigns';
-import { Shield, Plus, Play, Eye, AlertTriangle, CheckCircle, Cpu, Zap } from 'lucide-react';
+import { getProviders, getProviderModels } from '../api/providers';
+import { Shield, Plus, Play, Eye, AlertTriangle, CheckCircle, Cpu, Zap, Server, Loader2 } from 'lucide-react';
 
 const CATEGORY_OPTIONS = [
   { id: 'jailbreak', label: 'Jailbreak' },
@@ -14,17 +15,26 @@ const CATEGORY_OPTIONS = [
 
 const PROVIDER_TARGET_MODELS = {
   gemini: [
-    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (Verified / Recommended)' }
+    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (Verified / Recommended)' },
+    { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Fallback / Standard)' },
+    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
   ],
   openrouter: [
-    { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', label: 'Gemini 2.0 Flash Lite (OpenRouter Free)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B Instruct (OpenRouter Free)' }
+    { id: 'liquid/lfm-2.5-2.6b:free', label: 'Liquid LFM 2.5 2.6B (OpenRouter Free)' },
+    { id: 'nvidia/nemotron-3.5-lightning:free', label: 'NVIDIA Nemotron 3.5 Lightning (OpenRouter Free)' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B Instruct (OpenRouter Free)' },
+    { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', label: 'Gemini 2.0 Flash Lite (OpenRouter Free)' }
   ],
   groq: [
     { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile' },
+    { id: 'openai/gpt-oss-120b', label: 'OpenAI GPT-OSS 120B' },
+    { id: 'openai/gpt-oss-20b', label: 'OpenAI GPT-OSS 20B' },
+    { id: 'qwen/qwen3.8-27b', label: 'Qwen 3.8 27B' },
     { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7b 32768' }
   ],
   ollama: [
+    { id: 'llama3.2:3b', label: 'Llama 3.2 3B (Local)' },
     { id: 'llama3.2', label: 'Llama 3.2 (Local)' },
     { id: 'mistral', label: 'Mistral 7B (Local)' },
     { id: 'custom-local-model', label: 'Custom Local Model' }
@@ -42,6 +52,9 @@ const Campaigns = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [providers, setProviders] = useState([]);
+  const [modelOptionsMap, setModelOptionsMap] = useState(PROVIDER_TARGET_MODELS);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -57,7 +70,36 @@ const Campaigns = () => {
 
   useEffect(() => {
     fetchCampaigns();
+    loadProvidersAndModels();
   }, []);
+
+  const loadProvidersAndModels = async () => {
+    try {
+      const pList = await getProviders().catch(() => []);
+      if (pList && pList.length > 0) {
+        setProviders(pList);
+      }
+      // Discover models for initial provider
+      fetchModelsForProvider('gemini');
+    } catch (err) {
+      console.warn('Could not load providers list:', err.message);
+    }
+  };
+
+  const fetchModelsForProvider = async (providerId) => {
+    setLoadingModels(true);
+    try {
+      const res = await getProviderModels(providerId);
+      if (res && Array.isArray(res.models) && res.models.length > 0) {
+        const formatted = res.models.map(m => ({ id: m.id, label: m.name || m.id }));
+        setModelOptionsMap(prev => ({ ...prev, [providerId]: formatted }));
+      }
+    } catch (err) {
+      console.warn(`Dynamic model discovery error for ${providerId}:`, err.message);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const fetchCampaigns = async () => {
     try {
@@ -72,7 +114,9 @@ const Campaigns = () => {
   };
 
   const handleProviderChange = (newProvider) => {
-    const defaultModel = PROVIDER_TARGET_MODELS[newProvider]?.[0]?.id || 'gemini-3.5-flash-lite';
+    fetchModelsForProvider(newProvider);
+    const available = modelOptionsMap[newProvider] || PROVIDER_TARGET_MODELS[newProvider] || [];
+    const defaultModel = available[0]?.id || 'gemini-3.5-flash-lite';
     setFormData(prev => ({
       ...prev,
       provider: newProvider,
@@ -86,7 +130,8 @@ const Campaigns = () => {
     else if (newMode === 'LOCAL') newProvider = 'ollama';
     else if (newMode === 'EXTERNAL_API' && formData.provider === 'mock') newProvider = 'gemini';
 
-    const defaultModel = PROVIDER_TARGET_MODELS[newProvider]?.[0]?.id || 'gemini-3.5-flash-lite';
+    const available = modelOptionsMap[newProvider] || PROVIDER_TARGET_MODELS[newProvider] || [];
+    const defaultModel = available[0]?.id || 'gemini-3.5-flash-lite';
     setFormData(prev => ({
       ...prev,
       executionMode: newMode,
@@ -319,8 +364,8 @@ const Campaigns = () => {
                   onChange={e => setFormData({ ...formData, targetModel: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {currentModelOptions.map(m => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
+                  {(modelOptionsMap[formData.provider] || PROVIDER_TARGET_MODELS[formData.provider] || []).map(m => (
+                    <option key={m.id} value={m.id}>{m.label || m.name || m.id}</option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">

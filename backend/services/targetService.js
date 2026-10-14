@@ -12,7 +12,19 @@ async function callTargetModel(model, promptText, options = {}) {
 
   console.log(`[Target Service] Target call initiated. Requested Model: '${model}' (Resolved: '${resolvedModel}'), Provider: '${provider}', Mode: '${mode}'`);
 
-  // Use multi-provider AI abstraction layer
+  // Intentional MOCK simulation
+  if (mode === 'MOCK' || provider === 'mock') {
+    const mockText = generateMockTargetResponse(resolvedModel, promptText, null);
+    return createTargetResultObject({
+      text: mockText,
+      providerUsed: 'mock',
+      modeUsed: 'MOCK',
+      isMock: true,
+      modelUsed: resolvedModel
+    });
+  }
+
+  // Use multi-provider AI abstraction layer (throws on failure for real providers)
   const result = await generateCompletion({
     provider,
     mode,
@@ -32,20 +44,7 @@ async function callTargetModel(model, promptText, options = {}) {
     });
   }
 
-  // Fallback / Mock target response
-  if (mode === 'EXTERNAL_API' && provider !== 'mock') {
-    console.warn(`[Target Service WARNING] External API target execution failed for provider '${provider}' with model '${resolvedModel}'. Returning MOCK response.`);
-  }
-
-  const mockText = generateMockTargetResponse(resolvedModel, promptText, mode === 'EXTERNAL_API' ? provider : null);
-
-  return createTargetResultObject({
-    text: mockText,
-    providerUsed: 'mock',
-    modeUsed: 'MOCK',
-    isMock: true,
-    modelUsed: resolvedModel
-  });
+  throw new Error(`Target model call via provider '${provider}' did not return valid response text.`);
 }
 
 function createTargetResultObject({ text, providerUsed, modeUsed, isMock, modelUsed }) {

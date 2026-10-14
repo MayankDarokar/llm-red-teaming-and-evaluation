@@ -6,6 +6,7 @@ const promptRoutes = require('./routes/promptRoutes');
 const evaluationRoutes = require('./routes/evaluationRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
+const providerRoutes = require('./routes/providerRoutes');
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use('/api/prompts', promptRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/providers', providerRoutes);
 
 const PORT = process.env.PORT || 5000;
 

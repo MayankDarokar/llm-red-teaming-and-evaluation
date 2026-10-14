@@ -54,22 +54,40 @@ const Results = () => {
           </div>
         ) : (
           results.map(result => {
-            const isSafe = result.finalScore === 'Safe' || (result.score !== null && result.score < 50);
-            const statusStr = (result.status || 'complete').toLowerCase();
-            const isComplete = statusStr.startsWith('complete');
+            const isFailed = result.status === 'failed' || result.finalScore === 'Failed';
+            const isPending = result.status === 'pending' || result.status === 'running';
+            const isSafe = !isFailed && !isPending && (result.finalScore === 'Safe' || (result.score !== null && result.score < 50));
+            const isCustom = result.promptSource === 'custom' || result.evaluationId?.promptId?.category === 'custom';
 
             return (
               <div key={result._id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-gray-100 bg-gray-50/50 gap-4">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {result.evaluationId?.promptId?.title || 'Adversarial Prompt Test'}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {result.evaluationId?.promptId?.title || (isCustom ? 'Custom Prompt Evaluation' : 'Adversarial Prompt Test')}
+                      </h3>
+                      {isCustom && (
+                        <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs px-2 py-0.5 rounded-full font-semibold">
+                          Custom Prompt
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span className="font-semibold text-gray-700">Model: {result.evaluationId?.model || 'Target AI'}</span>
+                      {result.isMock && (
+                        <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                          Mock Simulation
+                        </span>
+                      )}
+                      {result.providerUsed && !result.isMock && (
+                        <span className="bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full font-semibold capitalize">
+                          {result.providerUsed}
+                        </span>
+                      )}
                       <span>•</span>
                       <span>Date: {new Date(result.createdAt).toLocaleString()}</span>
-                      {result.evaluationId?.promptId?.category && (
+                      {result.evaluationId?.promptId?.category && !isCustom && (
                         <>
                           <span>•</span>
                           <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
@@ -81,18 +99,30 @@ const Results = () => {
                   </div>
 
                   <div className="flex items-center space-x-3">
-                    {result.score !== null && result.score !== undefined && (
+                    {result.score !== null && result.score !== undefined && !isFailed && (
                       <div className="text-right">
                         <span className="text-xs text-gray-500 uppercase block font-semibold">Safety Score</span>
                         <span className="text-lg font-black text-gray-800">{result.score}/100</span>
                       </div>
                     )}
-                    <div className={`flex items-center px-3.5 py-1.5 rounded-lg text-sm font-bold shadow-sm ${
-                      isSafe ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
-                    }`}>
-                      {isSafe ? <ShieldCheck className="w-5 h-5 mr-1.5 text-green-700" /> : <AlertTriangle className="w-5 h-5 mr-1.5 text-red-700" />}
-                      <span>{isSafe ? 'Safe' : 'Unsafe'}</span>
-                    </div>
+                    {isFailed ? (
+                      <div className="flex items-center px-3.5 py-1.5 rounded-lg text-sm font-bold shadow-sm bg-red-100 text-red-800 border border-red-200">
+                        <AlertTriangle className="w-5 h-5 mr-1.5 text-red-700" />
+                        <span>Failed</span>
+                      </div>
+                    ) : isPending ? (
+                      <div className="flex items-center px-3.5 py-1.5 rounded-lg text-sm font-bold shadow-sm bg-yellow-100 text-yellow-800 border border-yellow-200">
+                        <Clock className="w-5 h-5 mr-1.5 text-yellow-700 animate-spin" />
+                        <span>Evaluating...</span>
+                      </div>
+                    ) : (
+                      <div className={`flex items-center px-3.5 py-1.5 rounded-lg text-sm font-bold shadow-sm ${
+                        isSafe ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                      }`}>
+                        {isSafe ? <ShieldCheck className="w-5 h-5 mr-1.5 text-green-700" /> : <AlertTriangle className="w-5 h-5 mr-1.5 text-red-700" />}
+                        <span>{isSafe ? 'Safe' : 'Unsafe'}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
