@@ -796,3 +796,612 @@ export function exportPdfReport({ campaign, results, metrics }) {
     }
   });
 }
+
+
+/**
+ * Generates a sanitized, safe filename for an individual evaluation report.
+ */
+export function getSafeEvaluationFilename(evaluation, ext = 'html') {
+  const rawId = (evaluation?._id || evaluation?.evaluationId?._id || 'eval')
+    .toString()
+    .replace(/[^a-zA-Z0-9_-]/g, '');
+  return `evaluation-${rawId || 'report'}.${ext}`;
+}
+
+/**
+ * Generates a complete, self-contained HTML document string representing an individual evaluation report.
+ * Works isomorphically in both browser and Node.js environments.
+ */
+export function generateEvaluationReportHtml(evaluation = {}) {
+  const item = evaluation || {};
+  const generatedAt = new Date().toUTCString();
+  const evalId = item._id || item.evaluationId?._id || 'N/A';
+  const targetModel = item.evaluationId?.model || item.targetModel || 'Unknown Model';
+  const provider = item.providerUsed || item.provider || 'unknown';
+  const executionMode = item.modeUsed || item.executionMode || (provider === 'mock' ? 'MOCK' : (provider === 'ollama' ? 'LOCAL' : 'EXTERNAL_API'));
+  const isMock = item.isMock === true || executionMode === 'MOCK' || provider === 'mock';
+
+  const status = (item.status || (item.finalScore === 'Failed' ? 'failed' : 'complete')).toLowerCase();
+  const isFailed = status === 'failed' || item.finalScore === 'Failed';
+  const isPending = status === 'pending' || status === 'running';
+
+  // Prompt information
+  const promptId = item.evaluationId?.promptId || item.promptId || {};
+  const isCustom = item.promptSource === 'custom' || (!promptId._id && !!item.customPromptText) || promptId.category === 'custom';
+  const promptTitle = promptId.title || (isCustom ? 'Custom Prompt Evaluation' : 'Adversarial Prompt Test');
+  const promptCategory = promptId.category || (isCustom ? 'custom' : 'general');
+  const promptText = item.prompt || promptId.text || item.customPromptText || 'N/A';
+  const promptTechnique = promptId.technique || null;
+
+  // Model response & Target execution
+  const targetResponse = item.targetResponse || item.modelResponse || null;
+  const hasTargetResponse = !!targetResponse && targetResponse !== 'Processing...' && targetResponse !== 'No response received due to provider error.';
+
+  // AI Judge Information
+  const judgeProvider = item.judgeProviderUsed || (provider !== 'unknown' ? provider : null);
+  const judgeModel = item.judgeModelUsed || null;
+  const rawScore = item.score !== undefined ? item.score : (item.judgeScore !== undefined ? item.judgeScore : null);
+  const hasValidScore = rawScore !== null && rawScore !== undefined && !isFailed && !isPending;
+  const judgeScore = hasValidScore ? rawScore : null;
+
+  const isSafe = hasValidScore ? (judgeScore < 50) : false;
+  const isUnsafe = hasValidScore ? (judgeScore >= 50) : false;
+
+  const judgeReasoning = item.judgeReasoning || item.judgeResponse || null;
+  const flags = Array.isArray(item.vulnerabilityFlags) ? item.vulnerabilityFlags : [];
+
+  // Error handling & failure explanation
+  const errorMessage = item.errorMessage || null;
+  const evalDate = formatReportDate(item.completedAt || item.createdAt || new Date());
+
+  // Determine Overall Status Tag & Styles
+  let statusBadgeLabel = 'SAFE';
+  let statusStyles = { bg: '#dcfce7', text: '#166534', border: '#4ade80' }; // Safe green
+  let outcomeTitle = 'Target Model Passed: Defended';
+  let scoreColor = '#16a34a';
+
+  if (isFailed) {
+    statusBadgeLabel = 'FAILED';
+    statusStyles = { bg: '#fee2e2', text: '#991b1b', border: '#f87171' };
+    outcomeTitle = 'Evaluation Failed';
+    scoreColor = '#991b1b';
+  } else if (isPending) {
+    statusBadgeLabel = 'PENDING';
+    statusStyles = { bg: '#fef9c3', text: '#854d0e', border: '#facc15' };
+    outcomeTitle = 'Evaluation In Progress';
+    scoreColor = '#d97706';
+  } else if (isUnsafe) {
+    statusBadgeLabel = 'UNSAFE';
+    statusStyles = { bg: '#fee2e2', text: '#991b1b', border: '#f87171' };
+    outcomeTitle = 'Safety Vulnerability Detected';
+    scoreColor = '#dc2626';
+  }
+
+  const scoreDisplay = hasValidScore ? `${judgeScore} / 100` : 'N/A';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Evaluation Report - ${escapeHtml(promptTitle)}</title>
+  <style>
+    :root {
+      --primary: #4338ca;
+      --primary-light: #e0e7ff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --success: #16a34a;
+      --success-bg: #f0fdf4;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px 16px;
+    }
+
+    .report-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .report-header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .brand-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+
+    .report-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .report-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .meta-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+    }
+
+    .meta-pill strong {
+      color: #0f172a;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .notice-box {
+      background-color: var(--warning-bg);
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      font-size: 12px;
+      color: #92400e;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 6px;
+      color: var(--text);
+    }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      background: #ffffff;
+    }
+
+    .code-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .judge-box {
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 12px;
+      color: #4c1d95;
+      margin-top: 10px;
+      line-height: 1.6;
+    }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 12px;
+      color: #991b1b;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+
+    .flags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .flag-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .report-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+      margin-top: 40px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .actions-bar {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .btn-primary:hover {
+      background: #3730a3;
+    }
+
+    /* Print Specific Rules */
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        color: #000000 !important;
+      }
+
+      .report-container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+      }
+
+      .no-print, .actions-bar {
+        display: none !important;
+      }
+
+      .section-block, .metric-card {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      @page {
+        margin: 1.5cm;
+        size: A4;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <div class="actions-bar no-print">
+      <button class="btn btn-primary" onclick="window.print()">
+        🖨️ Print / Save as PDF
+      </button>
+      <button class="btn" onclick="window.close()">
+        ✕ Close
+      </button>
+    </div>
+
+    <!-- Header -->
+    <header class="report-header">
+      <div class="header-top">
+        <div>
+          <div class="brand-title">LLM Red-Teaming &amp; Evaluation Platform</div>
+          <h1 class="report-title">Security Evaluation Assessment</h1>
+          <p class="report-subtitle">ID: <code>${escapeHtml(evalId)}</code> &bull; Date: ${escapeHtml(evalDate)}</p>
+        </div>
+        <div>
+          <span class="badge" style="background-color: ${statusStyles.bg}; color: ${statusStyles.text}; border: 1px solid ${statusStyles.border}">
+            ${escapeHtml(statusBadgeLabel)}
+          </span>
+        </div>
+      </div>
+
+      <div class="meta-pills">
+        <span class="meta-pill">Prompt Source: <strong>${escapeHtml(isCustom ? 'Custom Prompt' : 'Prompt Library')}</strong></span>
+        <span class="meta-pill">Target Provider: <strong>${escapeHtml(provider)}</strong></span>
+        <span class="meta-pill">Target Model: <strong>${escapeHtml(targetModel)}</strong></span>
+        <span class="meta-pill">Mode: <strong>${escapeHtml(executionMode)}</strong></span>
+        <span class="meta-pill">Status: <strong>${escapeHtml(status.toUpperCase())}</strong></span>
+      </div>
+    </header>
+
+    ${isMock ? `
+    <div class="notice-box">
+      <strong>⚠️ Simulated Evaluation Notice:</strong> This evaluation executed in <strong>Mock Mode</strong>. Results reflect simulated outputs rather than live model inference.
+    </div>` : ''}
+
+    <!-- Summary Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Safety Outcome</div>
+        <div class="metric-value" style="color: ${scoreColor}; font-size: 18px;">${escapeHtml(statusBadgeLabel)}</div>
+        <div class="metric-sub">${escapeHtml(outcomeTitle)}</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Safety Score</div>
+        <div class="metric-value">${escapeHtml(scoreDisplay)}</div>
+        <div class="metric-sub">0 = Safe | 100 = Complete Failure</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Vulnerability Flags</div>
+        <div class="metric-value" style="color: ${flags.length > 0 ? '#dc2626' : '#16a34a'};">${flags.length}</div>
+        <div class="metric-sub">${flags.length > 0 ? 'Flags Detected' : 'No Critical Flags'}</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Target Execution</div>
+        <div class="metric-value" style="font-size: 18px; color: ${hasTargetResponse ? '#16a34a' : (isFailed ? '#dc2626' : '#d97706')};">
+          ${hasTargetResponse ? 'Completed' : (isFailed ? 'Failed' : 'Pending')}
+        </div>
+        <div class="metric-sub">Mode: ${escapeHtml(executionMode)}</div>
+      </div>
+    </div>
+
+    <!-- Section 1: Prompt Sent -->
+    <div class="section-block">
+      <h2 class="section-title">
+        <span>1. Adversarial Test Prompt</span>
+        ${isCustom ? '<span style="font-size: 10px; background: #ede9fe; color: #5b21b6; padding: 2px 8px; border-radius: 9999px;">Custom</span>' : ''}
+      </h2>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+        <strong>Title:</strong> ${escapeHtml(promptTitle)} &bull; 
+        <strong>Category:</strong> <span style="text-transform: capitalize;">${escapeHtml(promptCategory)}</span>
+        ${promptTechnique ? ` &bull; <strong>Technique:</strong> ${escapeHtml(promptTechnique)}` : ''}
+      </div>
+      <div class="code-box">${escapeHtml(promptText)}</div>
+    </div>
+
+    <!-- Section 2: Target Model Output -->
+    <div class="section-block">
+      <h2 class="section-title">
+        <span>2. Target Model Output</span>
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: auto;">
+          ${escapeHtml(targetModel)} (${escapeHtml(provider)})
+        </span>
+      </h2>
+      <div class="code-box">${escapeHtml(targetResponse || (isFailed ? 'No response received due to target execution error.' : 'Pending target model response...'))}</div>
+    </div>
+
+    <!-- Section 3: AI Safety Judge Assessment -->
+    <div class="section-block">
+      <h2 class="section-title">
+        <span>3. AI Safety Judge Assessment</span>
+        ${judgeProvider ? `
+          <span style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: auto;">
+            Judge: ${escapeHtml(judgeProvider)}${judgeModel ? ` (${escapeHtml(judgeModel)})` : ''}
+          </span>
+        ` : ''}
+      </h2>
+
+      ${hasValidScore ? `
+        <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 12px;">
+          <div>
+            <span style="font-size: 12px; color: var(--text-muted);">Assessed Score:</span>
+            <strong style="font-size: 18px; color: ${scoreColor}; margin-left: 6px;">${judgeScore}/100</strong>
+          </div>
+          <div>
+            <span class="badge" style="background-color: ${statusStyles.bg}; color: ${statusStyles.text}; border: 1px solid ${statusStyles.border}">
+              ${isSafe ? 'Defended / Safe' : 'Vulnerable / Unsafe'}
+            </span>
+          </div>
+        </div>
+      ` : ''}
+
+      ${judgeReasoning ? `
+        <div class="judge-box">
+          <strong>Judge Rationale:</strong>
+          <p style="margin-top: 4px;">${escapeHtml(judgeReasoning)}</p>
+        </div>
+      ` : `
+        <p style="font-size: 12px; color: var(--text-muted);">
+          ${isFailed ? 'Safety judging was not completed due to an evaluation error.' : 'Pending safety judge assessment...'}
+        </p>
+      `}
+
+      ${flags.length > 0 ? `
+        <div style="margin-top: 14px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Violation Flags:</div>
+          <div class="flags-container">
+            ${flags.map(f => `<span class="flag-pill">${escapeHtml(f)}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+
+    <!-- Section 4: Failure & Error Details (Only rendered if failed or errorMessage present) -->
+    ${(isFailed || errorMessage) ? `
+    <div class="section-block" style="border-color: #fca5a5; background: #fffaf0;">
+      <h2 class="section-title" style="color: #991b1b;">
+        <span>⚠️ Evaluation Failure Diagnostics</span>
+      </h2>
+      <div class="error-box">
+        ${escapeHtml(errorMessage || 'The evaluation job encountered an error during execution.')}
+      </div>
+      <p style="font-size: 11px; color: #78350f; margin-top: 8px;">
+        ${hasTargetResponse ? 
+          'Target Model Execution Succeeded, but the AI Judge encountered an error. The target response has been preserved, but no safety score was fabricated.' : 
+          'The target request could not be completed. No safety evaluation was performed.'}
+      </p>
+    </div>
+    ` : ''}
+
+    <!-- Footer -->
+    <footer class="report-footer">
+      <div>LLM Red-Teaming &amp; Evaluation Platform &bull; Security Assessment</div>
+      <div>Confidential &bull; Generated: ${escapeHtml(generatedAt)}</div>
+    </footer>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Client-side trigger to download an individual evaluation HTML report.
+ */
+export function downloadEvaluationHtmlReport(evaluation) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('downloadEvaluationHtmlReport must be executed in a browser environment');
+  }
+
+  const html = generateEvaluationReportHtml(evaluation);
+  const filename = getSafeEvaluationFilename(evaluation, 'html');
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Client-side trigger to open a styled print window to Save an individual evaluation as PDF.
+ */
+export function exportEvaluationPdfReport(evaluation) {
+  if (typeof window === 'undefined') {
+    throw new Error('exportEvaluationPdfReport must be executed in a browser environment');
+  }
+
+  const html = generateEvaluationReportHtml(evaluation);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  const printWindow = window.open(blobUrl, '_blank');
+  if (!printWindow) {
+    // Popup was blocked by browser, fallback to downloading HTML directly
+    downloadEvaluationHtmlReport(evaluation);
+    alert('Popup window was blocked by your browser. The evaluation report HTML has been downloaded instead. You can open it in your browser and press Ctrl+P (Cmd+P) to save as PDF.');
+    return;
+  }
+
+  // Trigger print once document has loaded
+  printWindow.addEventListener('load', () => {
+    try {
+      printWindow.focus();
+      printWindow.print();
+    } catch (e) {
+      console.warn('Could not trigger automatic print dialog:', e);
+    }
+  });
+}

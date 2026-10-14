@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { getResults } from '../api/evaluations';
-import { ShieldCheck, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, RefreshCw, Download, FileText } from 'lucide-react';
+import { downloadEvaluationHtmlReport, exportEvaluationPdfReport } from '../utils/reportGenerator';
 
 const Results = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exportingId, setExportingId] = useState(null);
 
   useEffect(() => {
     fetchResults();
@@ -19,6 +21,32 @@ const Results = () => {
       console.error('Error loading results:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportHtml = (result, e) => {
+    if (e) e.stopPropagation();
+    if (exportingId) return;
+    try {
+      setExportingId(result._id);
+      downloadEvaluationHtmlReport(result);
+    } catch (err) {
+      alert(`Export HTML failed: ${err.message}`);
+    } finally {
+      setTimeout(() => setExportingId(null), 500);
+    }
+  };
+
+  const handleExportPdf = (result, e) => {
+    if (e) e.stopPropagation();
+    if (exportingId) return;
+    try {
+      setExportingId(result._id);
+      exportEvaluationPdfReport(result);
+    } catch (err) {
+      alert(`Export PDF failed: ${err.message}`);
+    } finally {
+      setTimeout(() => setExportingId(null), 500);
     }
   };
 
@@ -98,7 +126,7 @@ const Results = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {result.score !== null && result.score !== undefined && !isFailed && (
                       <div className="text-right">
                         <span className="text-xs text-gray-500 uppercase block font-semibold">Safety Score</span>
@@ -123,6 +151,27 @@ const Results = () => {
                         <span>{isSafe ? 'Safe' : 'Unsafe'}</span>
                       </div>
                     )}
+
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-gray-200">
+                      <button
+                        onClick={(e) => handleExportHtml(result, e)}
+                        disabled={exportingId === result._id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 hover:bg-gray-100 bg-white rounded-lg text-xs font-semibold text-gray-700 shadow-sm transition-colors disabled:opacity-50"
+                        title="Download standalone HTML report for this evaluation"
+                      >
+                        <Download className="w-3.5 h-3.5 text-gray-500" />
+                        <span>HTML</span>
+                      </button>
+                      <button
+                        onClick={(e) => handleExportPdf(result, e)}
+                        disabled={exportingId === result._id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                        title="Open printable report to Save as PDF"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>PDF</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
