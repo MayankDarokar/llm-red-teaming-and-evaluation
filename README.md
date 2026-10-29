@@ -43,11 +43,11 @@
 - [Security & Secret Management](#-security--secret-management)
 - [Current Implementation Status](#-current-implementation-status)
 - [Known Limitations](#-known-limitations)
-- [Future Roadmap (Phase 3)](#-future-roadmap-phase-3)
+- [Current Status](#-current-status)
 - [Documentation References](#-documentation-references)
 - [Contributing](#-contributing)
 - [License](#-license)
-- [Author](#-author)
+- [Team](#-team)
 
 ---
 
@@ -755,32 +755,18 @@ The web frontend provides an interactive workspace for AI security testing:
 
 ---
 
-## 🚦 Current Implementation Status
+## 🚦 Current Status
 
-```
-[ PHASE 1 ] ──► COMPLETED & VERIFIED ✅
-                - Single-prompt async evaluation pipeline (HTTP 202 + polling)
-                - Adversarial Prompt Library with CRUD & category filters
-                - System Risk Dashboard & Telemetry API
-                - Results viewer with vulnerability flag inspection
+The implementation across the three project phases is complete. The repository includes the original single-evaluation workflow, automated multi-round red-teaming campaigns, a multi-provider gateway, model discovery, evaluation failure handling, mutation lineage, and HTML/PDF report generation.
 
-[ PHASE 2 ] ──► COMPLETED & VALIDATED ✅
-                - Multi-round automated AI Red-Teaming Campaigns
-                - Provider abstraction layer & dynamic model registry (Gemini 3.5 Flash Lite verified)
-                - AI Adversarial Attack Generator with 8 technique strategies
-                - AI Safety Judge with defensive JSON parsing
-                - Evolutionary Attack Mutation Engine across 3 generations
-                - Mutation lineage tracking and real-time frontend campaign dashboard
+### Implemented and validated
+- Single-prompt evaluation, adversarial prompt library, dashboard, and results history.
+- Campaign generation, execution, AI judging, mutation, metrics, and lineage visualization.
+- Gemini, OpenRouter, Groq, Ollama, and mock/local execution modes, subject to provider configuration and availability.
+- Controlled Gemini fallback and explicit reporting of provider/model execution metadata.
+- HTML/PDF report-generation utilities and focused regression scripts.
 
-[ PHASE 3 ] ──► IN PROGRESS (Current Branch: phase-3-temp-progress) 🚀
-                - Multi-provider support (Gemini, OpenRouter, Groq, Ollama, Mock)
-                - Live dynamic model discovery with 5-minute TTL caching & free-tier prioritization
-                - Standalone manual custom-prompt evaluation console (up to 4,000 characters)
-                - Controlled Gemini fallback (gemini-3.5-flash-lite -> gemini-3.5-flash) with bounded retries
-                - Evaluation lifecycle reliability: no stuck pending/running jobs, failure integrity
-                - Multi-generational lineage resolution & cycle-safe tree visualization
-                - Self-contained HTML and PDF compliance report export utility
-```
+The repository includes deterministic and mocked regression tests. A passing mocked test suite verifies local control flow; it does not guarantee that an external provider is available or that every live API call will succeed.
 
 ---
 
@@ -793,52 +779,53 @@ The web frontend provides an interactive workspace for AI security testing:
 
 ---
 
-## 🔮 Future Roadmap (Phase 3)
+## 🔭 Possible Future Enhancements
 
-The following features are planned for subsequent development phases:
+These are optional extensions rather than unfinished requirements for the current submission:
 
-- [ ] **Exportable Audit Reports**: One-click PDF / HTML executive summary reports for compliance and auditing.
-- [ ] **Custom HTTP Target Endpoints**: Enable red-teaming custom target URLs with bearer token authentication for testing proprietary enterprise models.
-- [ ] **Advanced Adversarial Encoding**: Support Base64 encoding, multi-lingual framing, and automated suffix injection attacks.
-- [ ] **Comparative Model Benchmarking**: Side-by-side comparative campaigns evaluating multiple models against identical attack sets.
-- [ ] **Distributed Job Queue**: Integration of BullMQ / Redis for high-concurrency enterprise campaign execution.
+- Custom HTTP targets with strict URL validation and secure credential handling.
+- Expanded multilingual and encoding-based attack coverage.
+- Side-by-side benchmarking of multiple target models.
+- A distributed job queue for higher-concurrency workloads.
 
 ---
 
-## 📚 Documentation References
+## 📚 Documentation
 
-For additional historical and technical context, refer to the following project documents:
+- [`AI_HANDOFF.md`](./AI_HANDOFF.md): Engineering handoff, architecture decisions, validation notes, and limitations.
+- [`1st_phase_progress.md`](./1st_phase_progress.md): Historical Phase 1 implementation record.
 
-- [`AI_HANDOFF.md`](./AI_HANDOFF.md): Comprehensive Phase 2 engineering audit, architectural decisions, and handoff guide.
-- [`change.md`](./change.md): Chronological record of features, fixes, and updates across development phases.
-- [`1st_phase_progress.md`](./1st_phase_progress.md): Detailed progress report on Phase 1 implementation.
-- [`overview.md`](./overview.md): Concise introductory project overview.
-- [`phase1_next_steps_implementation_guide.md`](./phase1_next_steps_implementation_guide.md): Reference guide for initial asynchronous job architecture.
+Development-era planning notes and duplicated summaries have been removed from the root to keep the submission focused. The README is the primary starting point for setup and architecture.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions to improve attack coverage, add provider connectors, or enhance safety judging are welcome.
+To propose a change, create a focused feature branch and open a pull request against `main`. Keep changes scoped and avoid modifying the evaluation pipeline unless the change specifically requires it.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-attack-vector`)
-3. Commit your changes (`git commit -m "feat: add multi-lingual attack generation"`)
-4. Push to the branch (`git push origin feature/new-attack-vector`)
-5. Open a Pull Request
+1. Create a branch (for example, `docs/setup-guide` or `test/report-generator-cases`).
+2. Make one meaningful, reviewable change.
+3. Run the relevant checks and include the results in the pull request.
+4. Use a descriptive commit message, such as `docs: clarify local setup requirements`.
+5. Open a pull request with a summary, motivation, and verification steps.
 
+Do not commit API keys, local environment files, database dumps, or generated build output.
 ---
 
 ## 📄 License
 
-This project's backend configuration specifies the **ISC License**. An explicit root license file has not yet been added.
+The backend package metadata specifies the ISC License. Confirm the repository's intended licensing terms with the project guide before adding a root-level license file.
 
 ---
 
-## 👨‍💻 Author
+## 👥 Team
 
-**Mayank Darokar**  
-*B.Tech — Artificial Intelligence & Data Science*  
+| Member | Role / Contribution | GitHub |
+| :--- | :--- | :--- |
+| **Mayank Darokar** | Project lead; full-stack integration and AI provider/evaluation architecture | [@MayankDarokar](https://github.com/MayankDarokar) |
+| **Aditya** | Add contribution summary and GitHub profile after confirmation | *Add GitHub username* |
+| **Prashansa** | Add contribution summary and GitHub profile after confirmation | *Add GitHub username* |
 
-- **GitHub Profile**: [https://github.com/MayankDarokar](https://github.com/MayankDarokar)  
-- **Project Repository**: [https://github.com/MayankDarokar/llm-red-teaming-and-evaluation](https://github.com/MayankDarokar/llm-red-teaming-and-evaluation)
+> Update each teammate's role and GitHub link to reflect their actual contribution before final submission.
+
+**Repository:** [MayankDarokar/llm-red-teaming-and-evaluation](https://github.com/MayankDarokar/llm-red-teaming-and-evaluation)
