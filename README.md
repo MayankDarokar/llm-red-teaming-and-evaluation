@@ -823,8 +823,8 @@ The backend package metadata specifies the ISC License. Confirm the repository's
 | Member | Role / Contribution | GitHub |
 | :--- | :--- | :--- |
 | **Mayank Darokar** | Project lead; full-stack integration and AI provider/evaluation architecture | [@MayankDarokar](https://github.com/MayankDarokar) |
-| **Aditya** | Add contribution summary and GitHub profile after confirmation | *Add GitHub username* |
-| **Prashansa** | Add contribution summary and GitHub profile after confirmation | *Add GitHub username* |
+| **[Team Member 2]** | Add verified contribution summary | *Add GitHub username* |
+| **[Team Member 3]** | Add verified contribution summary | *Add GitHub username* |
 
 > Update each teammate's role and GitHub link to reflect their actual contribution before final submission.
 
