@@ -44,7 +44,7 @@
 - [Current Implementation Status](#-current-implementation-status)
 - [Known Limitations](#-known-limitations)
 - [Current Status](#-current-status)
-- [Documentation References](#-documentation-references)
+- [Documentation](#-documentation)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Team](#-team)
