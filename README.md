@@ -814,7 +814,10 @@ Do not commit API keys, local environment files, database dumps, or generated bu
 
 ## 📄 License
 
-The backend package metadata specifies the ISC License. Confirm the repository's intended licensing terms with the project guide before adding a root-level license file.
+This project is licensed under the [ISC License](./LICENSE).
+
+You are free to use, modify, and distribute this software
+in accordance with the terms of the license.
 
 ---
 
